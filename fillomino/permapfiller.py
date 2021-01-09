@@ -51,6 +51,12 @@ class PermapFiller:
         with the inital data and the rated value.  If none have been
         set, the default dict {'freq': 1, 'AFR': 1} is assigned when the
         operating mode is set.
+    ranges : dict
+        Operating ranges for the input quantities of the performance map.
+        The limits of the performance map are used for the default ranges.
+    restricted : bool, default False
+        ``True`` if performance map operating range have been limited using
+        the `PermapFiller.limit_operating_ranges` method.
 
     Examples
     --------
@@ -85,7 +91,9 @@ class PermapFiller:
         '_normalized',
         '_entries',
         '_corrections',
-        '_manval_factors'
+        '_manval_factors',
+        '_ranges',
+        '_restricted'
     )
 
     def __init__(self, pandas_obj):
@@ -96,6 +104,114 @@ class PermapFiller:
         self._entries = {'freq': [0.2, 0.5, 1], 'AFR': [0, 1]}
         self._corrections = None
         self._manval_factors = None
+        self._ranges = self.index_ranges(pandas_obj.index)
+        self._restricted = False
+
+    @property
+    def ranges(self):
+        return self._ranges
+
+    @ranges.setter
+    def ranges(self, new_ranges):
+        """Setter for the `ranges` property."""
+        if any(key not in self._obj.index.names for key in new_ranges.keys()):
+            raise ValueError("range keys must be in table level names.")
+        self._ranges = new_ranges
+
+    @classmethod
+    def index_range(cls, index, level):
+        """Return the range of a pandas MultiIndex along a given level.
+
+        Parameters
+        ----------
+        index : pandas MultiIndex
+            The index must have ``min`` and ``max`` methods.
+        level
+            The name of the level for which the range must be returned.
+
+        Returns
+        -------
+        pandas Interval
+            range of the index along the specified level,
+            in the form (lower bound, upper bound).
+
+        """
+        index_values = index.get_level_values(level)
+        return pd.Interval(
+            index_values.min(),
+            index_values.max(),
+            closed='both'
+        )
+
+    @classmethod
+    def index_ranges(cls, index):
+        """Get ranges for each level of a pandas MultiIndex as a dict."""
+        return {level: cls.index_range(index, level) for level in index.names}
+
+    def limit_operating_ranges(self):
+        """Apply `PermapFiller.limit_operating_ranges` to all levels."""
+        if self.restricted:
+            raise RuntimeError("values are already restricted.")
+        new = self.copy()
+        new.pmf._restricted = True
+        original_level_order = new.index.names
+        for level in new.pmf.ranges.keys():
+            new = new.pmf.limit_operating_range(level)
+        return (
+            new.reorder_levels(original_level_order)
+               .sort_index()
+               .pmf.copyattr(new)
+        )
+
+    def limit_operating_range(self, level, below=None):
+        """Add an entry filled with zeros just below the lowest one.
+
+        To set a lower limit in a given level of a performance table,
+        an entry is added just below the lowest entry of that level,
+        corresponding to the lower limit of the associated range.  All
+        values associated with this new entry are zeros.  If the lower
+        limit if smaller than the actual lowest entry of the performance
+        map, an additional entry with constant performances is added with
+        the value of the range's lower limit.
+
+        Parameters
+        ----------
+        level
+            The name of the level where the zeros are to be added.
+        below : optional float
+            Distance between the range's lower limit and the new entry.
+            If none is specified, the default is 1e-8 times the length of
+            the range of the given level.
+
+        Returns
+        -------
+        DataFrame
+            Same data with an addditional new entry filled with zeros.
+            The level order may be different, as the specified level will
+            be on top.
+
+        """
+        rng = self.ranges[level]
+        permap = self.copy()
+        reordered = permap.swaplevel(0, level).sort_index()
+        lowest_entry = reordered.index.get_level_values(0).min()
+        chunk = reordered.xs(lowest_entry, level=0, drop_level=False)
+        if rng.left < lowest_entry:
+            full_range = (
+                pd.concat(
+                    [chunk.rename(index={lowest_entry: rng.left}), reordered]
+                )
+                .pmf.copyattr(permap)
+            )
+            return full_range.pmf.limit_operating_range(level, below=below)
+        else:
+            left_bound = rng.left - (below or 1e-5 * rng.length)
+            zeros_under = pd.DataFrame(
+                0,
+                index=chunk.index,
+                columns=chunk.columns
+            ).rename(index={rng.left: left_bound})
+            return pd.concat([zeros_under, reordered]).pmf.copyattr(self)
 
     @property
     def mode(self):
@@ -146,6 +262,10 @@ class PermapFiller:
     @property
     def normalized(self):
         return self._normalized
+
+    @property
+    def restricted(self):
+        return self._restricted
 
     def copy(self):
         return self.copyattr(self)

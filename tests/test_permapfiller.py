@@ -29,8 +29,45 @@ def all_freq_corrections(mode):
 
 
 @pytest.fixture
+def cls():
+    return fmo.PermapFiller
+
+
+@pytest.fixture
+def index_sample():
+    index_entries = [[22, 24, 36, 45], [342, 548, 723, 927]]
+    level_names = ('temperature', 'flowrate')
+    return pd.MultiIndex.from_arrays(index_entries, names=level_names)
+
+
+@pytest.fixture
 def filled_table(mode, root):
     return pd.read_pickle(root / f"tests/data/filled-table-{mode}.pkl")
+
+
+@pytest.fixture
+def restricted_range_table(mode, root):
+    return pd.read_pickle(root / f"tests/data/restricted-range-table-{mode}.pkl")
+
+
+@pytest.fixture
+def extended_range_table(mode, root):
+    return pd.read_pickle(root / f"tests/data/extended-range-table-{mode}.pkl")
+
+
+@pytest.fixture
+def extended_ranges(mode):
+    if mode == 'cooling':
+        return {
+            'Tdbr': pd.Interval(15, 32.2, closed='both'),
+            'Twbr': pd.Interval(10, 22.8, closed='both'),
+            'Tdbo': pd.Interval(-12, 46, closed='both'),
+        }
+    else:
+        return {
+            'Tdbr': pd.Interval(15, 23.9),
+            'Tdbo': pd.Interval(-30, 15)
+        }
 
 
 @pytest.mark.parametrize('mode', ['cooling', 'heating'])
@@ -38,6 +75,51 @@ class TestPermapFiller:
     def test_permapfiller(self, permap):
         pmf = fmo.PermapFiller(permap)
         assert isinstance(permap.pmf, type(pmf))
+
+    def test_ranges(self, permap):
+        ranges = fmo.PermapFiller.index_ranges(permap.index)
+        assert ranges == permap.pmf.ranges
+
+    def test_index_range(self, cls, index_sample, mode):
+        level_values = index_sample.get_level_values('flowrate')
+        rng = pd.Interval(level_values.min(), level_values.max(), 'both')
+        assert cls.index_range(index_sample, 'flowrate') == rng
+
+    def test_index_ranges(self, cls, index_sample, mode):
+        ranges = {
+            'temperature': pd.Interval(22, 45, closed='both'),
+            'flowrate': pd.Interval(342, 927, closed='both')
+        }
+        assert cls.index_ranges(index_sample) == ranges
+
+    def test_limit_operating_ranges(
+        self,
+        permap,
+        restricted_range_table,
+        extended_range_table,
+        extended_ranges
+    ):
+        restricted = permap.pmf.limit_operating_ranges()
+        assert restricted.pmf.restricted
+        assert_frame_equal(restricted, restricted_range_table)
+        permap.pmf.ranges = extended_ranges
+        restricted = permap.pmf.limit_operating_ranges()
+        assert_frame_equal(restricted, extended_range_table)
+
+    def test_limit_operating_range(self, permap):
+        reordered = permap.swaplevel(0, 'Tdbo').sort_index()
+        rng = permap.pmf.ranges['Tdbo']
+        chunk = reordered.xs(rng.left, level='Tdbo', drop_level=False)
+        left_bound = rng.left - 1e-5 * rng.length
+        zeros_under = pd.DataFrame(
+            0,
+            index=chunk.index,
+            columns=chunk.columns
+        ).rename(index={rng.left: left_bound})
+        assert_frame_equal(
+            pd.concat([zeros_under, reordered]),
+            permap.pmf.limit_operating_range('Tdbo')
+        )
 
     def test_mode(self, mode, permap):
         assert permap.pmf.corrections is None
