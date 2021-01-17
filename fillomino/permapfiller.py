@@ -101,7 +101,7 @@ class PermapFiller:
         self._obj = pandas_obj
         self._mode = None
         self._normalized = False
-        self._entries = {'freq': [0.2, 0.5, 1], 'AFR': [0, 1]}
+        self._entries = {'freq': [0.2, 0.5, 1], 'AFR': [1e-5, 1]}
         self._corrections = None
         self._manval_factors = None
         self._ranges = self.index_ranges(pandas_obj.index)
@@ -148,70 +148,154 @@ class PermapFiller:
         """Get ranges for each level of a pandas MultiIndex as a dict."""
         return {level: cls.index_range(index, level) for level in index.names}
 
-    def limit_operating_ranges(self):
-        """Apply `PermapFiller.limit_operating_ranges` to all levels."""
+    def limit_operating_ranges(self, side='both', levels=None, omit=None):
+        """Apply `PermapFiller.limit_operating_range` to all levels."""
         if self.restricted:
             raise RuntimeError("values are already restricted.")
         new = self.copy()
         new.pmf._restricted = True
         original_level_order = new.index.names
-        for level in new.pmf.ranges.keys():
-            new = new.pmf.limit_operating_range(level)
+        levels = set(levels or new.pmf.ranges.keys()) - set(omit or [])
+        for level in levels:
+            new = new.pmf.limit_operating_range(
+                level,
+                side=side,
+                keep_order=False
+            )
         return (
             new.reorder_levels(original_level_order)
-               .sort_index()
-               .pmf.copyattr(new)
+            .sort_index()
+            .pmf.copyattr(new)
         )
 
-    def limit_operating_range(self, level, below=None):
+    def limit_operating_range(
+            self,
+            level,
+            side='both',
+            left_shift=None,
+            right_shift=None,
+            keep_order=True
+    ):
         """Add an entry filled with zeros just below the lowest one.
 
-        To set a lower limit in a given level of a performance table,
-        an entry is added just below the lowest entry of that level,
-        corresponding to the lower limit of the associated range.  All
-        values associated with this new entry are zeros.  If the lower
-        limit if smaller than the actual lowest entry of the performance
-        map, an additional entry with constant performances is added with
-        the value of the range's lower limit.
+        To set a lower/upper limit in a given level of a performance table,
+        entries are added just below/above the lowest/highest entry of that
+        level, corresponding to the left/right bound of the associated
+        range.  All values associated with these new entries are zeros.
+        If the left/right if smaller/larger than the actual lowest/highest
+        entry of the performance map, an additional entry with constant
+        performances is added with the value of the range's left/right
+        bound.
 
         Parameters
         ----------
         level
             The name of the level where the zeros are to be added.
-        below : optional float
-            Distance between the range's lower limit and the new entry.
-            If none is specified, the default is 1e-8 times the length of
+        side : {'both', 'left', 'right'}
+            Side on which the performance map level must be limited.
+        left_shift : optional float
+            Distance between the range's left bound and the new entry.
+            If none is specified, the default is 1e-5 times the length of
             the range of the given level.
+        right_shift : optional float
+            Distance between the range's right bound and the new entry.
+            If none is specified, the default is 1e-5 times the length of
+            the range of the given level.
+        keep_order : bool, default True
+            If ``False``, the level order with not be kept the same as the
+            original, as the level given as parameter will be on top.
 
         Returns
         -------
         DataFrame
-            Same data with an addditional new entry filled with zeros.
-            The level order may be different, as the specified level will
-            be on top.
+            Same data with addditional entries filled with zeros.
+            The level order may be different, if keep_order is ``False``.
 
         """
+        if side not in ('left', 'right', 'both'):
+            raise ValueError("'side' must be 'left', 'right' or 'both'.")
+        extended = (
+            self.extend_to_range(level, side=side)
+            .swaplevel(0, level)  # put level as top level for stacking
+            .sort_index()
+        )
+        rng = self.ranges[level]
+        chunk = (
+            extended.xs(rng.left, level=0, drop_level=False)
+            .rename(index={rng.left: 'new'})
+        )
+
+        def zeros_like(df):
+            return pd.DataFrame(0, index=df.index, columns=df.columns)
+
+        if side in ('left', 'both') or left_shift is not None:
+            left_bound = rng.left - (left_shift or 1e-5 * rng.length)
+            zeros_left = zeros_like(chunk).rename(index={'new': left_bound})
+        else:
+            zeros_left = pd.DataFrame()
+
+        if side in ('right', 'both') or right_shift is not None:
+            right_bound = rng.right + (right_shift or 1e-5 * rng.length)
+            zeros_right = zeros_like(chunk).rename(index={'new': right_bound})
+        else:
+            zeros_right = pd.DataFrame()
+
+        if keep_order:
+            limited = (
+                pd.concat([zeros_left, extended, zeros_right])
+                .reorder_levels(self._obj.index.names)
+                .sort_index()
+            )
+        else:
+            limited = pd.concat([zeros_left, extended, zeros_right])
+
+        return limited.pmf.copyattr(self)
+
+    def extend_to_range(self, level, side='both'):
+        """Extend the performance map with constant values.
+
+        If the performance map domain is smaller than the one covered by
+        the interval in `PermapFiller.ranges` corresponding to the
+        specified level, it is extended to get the same coverage as the
+        intervals by extrapolating with constant performance values.
+
+        Parameters
+        ----------
+        level
+            The name of the level where the performance map domain must be
+            extended.
+        side : {'both', 'left', 'right'}
+            Side on which the performance map level must be extended.
+
+        Returns
+        -------
+        DataFrame
+            Input data with entries covering the whole range for the
+            specified level.
+
+        """
+        if side not in ('left', 'right', 'both'):
+            raise ValueError("'side' must be 'left', 'right' or 'both'.")
         rng = self.ranges[level]
         permap = self.copy()
         reordered = permap.swaplevel(0, level).sort_index()
         lowest_entry = reordered.index.get_level_values(0).min()
-        chunk = reordered.xs(lowest_entry, level=0, drop_level=False)
-        if rng.left < lowest_entry:
-            full_range = (
-                pd.concat(
-                    [chunk.rename(index={lowest_entry: rng.left}), reordered]
-                )
-                .pmf.copyattr(permap)
+        if rng.left < lowest_entry and side in ('both', 'left'):
+            left = (
+                reordered.xs(lowest_entry, level=0, drop_level=False)
+                .rename(index={lowest_entry: rng.left})
             )
-            return full_range.pmf.limit_operating_range(level, below=below)
         else:
-            left_bound = rng.left - (below or 1e-5 * rng.length)
-            zeros_under = pd.DataFrame(
-                0,
-                index=chunk.index,
-                columns=chunk.columns
-            ).rename(index={rng.left: left_bound})
-            return pd.concat([zeros_under, reordered]).pmf.copyattr(self)
+            left = pd.DataFrame()
+        highest_entry = reordered.index.get_level_values(0).max()
+        if rng.right > highest_entry and side in ('both', 'right'):
+            right = (
+                reordered.xs(highest_entry, level=0, drop_level=False)
+                .rename(index={highest_entry: rng.right})
+            )
+        else:
+            right = pd.DataFrame()
+        return pd.concat([left, reordered, right]).pmf.copyattr(permap)
 
     @property
     def mode(self):
@@ -332,7 +416,7 @@ class PermapFiller:
 
         See also
         --------
-        PermapFiller.fillmap :
+        PermapFiller.fill :
             Fill the missing values and optionally normalize the data
             in one go.
 
@@ -745,7 +829,7 @@ class PermapFiller:
         See Also
         --------
         PermapFiller.extend : extend performance map using corrections.
-        PermapFiller.fillmap : fill missing values in performance map.
+        PermapFiller.fill : fill missing values in performance map.
 
         """
         self._check_columns(corrections.keys())
@@ -782,7 +866,7 @@ class PermapFiller:
         See Also
         --------
         PermapFiller.correct : apply corrections to ouput quantities.
-        PermapFiller.fillmap : fill missing values in performance map.
+        PermapFiller.fill : fill missing values in performance map.
 
         """
         self._check_columns(corrections.keys())
@@ -793,7 +877,7 @@ class PermapFiller:
         new = pd.concat(extrusions, keys=entries, names=[name])
         return new.pmf.copyattr(self)
 
-    def fillmap(self, norm=None):
+    def fill(self, norm=None):
         """Extend the performance map along a new dimension.
 
         Parameters
@@ -852,7 +936,7 @@ class PermapFiller:
         ('Twbr') and air flow rate ('AFR'), and normalize data:
 
         >>> rated_values = pd.DataFrame({'capacity': [3.52], 'power': [0.79]})
-        >>> cool_map.pmf.fillmap(norm=rated_values)
+        >>> cool_map.pmf.fill(norm=rated_values)
         cooling                      power  sensible_capacity  latent_capacity
         Tdbr Twbr Tdbo  AFR freq
         17.8 12.2 -10.0 0   0.1   0.003268           0.010849         0.013296

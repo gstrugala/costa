@@ -18,6 +18,22 @@ def permap(mode, manufacturer_data_file):
 
 
 @pytest.fixture
+def complete_permap(mode, permap):
+    freq_entries = np.arange(1, {'cooling': 14, 'heating': 21}[mode]) / 10
+    permap.pmf.entries['freq'] = freq_entries
+    permap.pmf.mode = mode
+    if mode == 'heating':
+        permap.pmf.manval_factors['freq'] = 119 / 60
+    rated = pd.DataFrame({
+        'capacity': [{'cooling': 3.52, 'heating': 4.69}[mode]],
+        'power': [{'cooling': 0.79, 'heating': 1.01}[mode]]
+    })
+    complete = permap.pmf.fill(norm=rated)
+    complete.pmf.ranges = complete.pmf.index_ranges(complete.index)
+    return complete
+
+
+@pytest.fixture
 def all_freq_corrections(mode):
     corrections = build_default_corrections(mode).pop('freq')
     cop, power = corrections['COP'], corrections['power']
@@ -59,15 +75,21 @@ def extended_range_table(mode, root):
 def extended_ranges(mode):
     if mode == 'cooling':
         return {
-            'Tdbr': pd.Interval(15, 32.2, closed='both'),
-            'Twbr': pd.Interval(10, 22.8, closed='both'),
-            'Tdbo': pd.Interval(-12, 46, closed='both'),
+            'Tdbr': pd.Interval(15, 35, closed='both'),
+            'Twbr': pd.Interval(10, 25, closed='both'),
+            'Tdbo': pd.Interval(-10, 50, closed='both'),
         }
     else:
         return {
-            'Tdbr': pd.Interval(15, 23.9),
-            'Tdbo': pd.Interval(-30, 15)
+            'Tdbr': pd.Interval(15, 25, closed='both'),
+            'Tdbo': pd.Interval(-30, 15, closed='both')
         }
+
+
+@pytest.fixture
+def no_param(mode):
+    if mode == 'heating':
+        pytest.skip("operating mode has no influence on this test.")
 
 
 @pytest.mark.parametrize('mode', ['cooling', 'heating'])
@@ -80,30 +102,44 @@ class TestPermapFiller:
         ranges = fmo.PermapFiller.index_ranges(permap.index)
         assert ranges == permap.pmf.ranges
 
-    def test_index_range(self, cls, index_sample, mode):
+    def test_index_range(self, cls, index_sample, no_param):
         level_values = index_sample.get_level_values('flowrate')
         rng = pd.Interval(level_values.min(), level_values.max(), 'both')
         assert cls.index_range(index_sample, 'flowrate') == rng
 
-    def test_index_ranges(self, cls, index_sample, mode):
+    def test_index_ranges(self, cls, index_sample, no_param):
         ranges = {
             'temperature': pd.Interval(22, 45, closed='both'),
             'flowrate': pd.Interval(342, 927, closed='both')
         }
         assert cls.index_ranges(index_sample) == ranges
 
+    def test_pm(self, complete_permap, filled_table):
+        assert_frame_equal(complete_permap, filled_table)
+
     def test_limit_operating_ranges(
         self,
-        permap,
+        complete_permap,
         restricted_range_table,
         extended_range_table,
         extended_ranges
     ):
-        restricted = permap.pmf.limit_operating_ranges()
+        restricted = (
+            complete_permap.pmf.limit_operating_ranges(omit=['AFR'])
+            .pmf.limit_operating_range('AFR', left_shift=1e-5)
+        )
+        restricted = (
+            restricted.reorder_levels(complete_permap.index.names)
+            .sort_index()
+            .pmf.copyattr(restricted)
+        )
         assert restricted.pmf.restricted
         assert_frame_equal(restricted, restricted_range_table)
-        permap.pmf.ranges = extended_ranges
-        restricted = permap.pmf.limit_operating_ranges()
+        complete_permap.pmf.ranges.update(extended_ranges)
+        restricted = (
+            complete_permap.pmf.limit_operating_ranges(omit=['AFR'])
+            .pmf.limit_operating_range('AFR', left_shift=1e-5)
+        )
         assert_frame_equal(restricted, extended_range_table)
 
     def test_limit_operating_range(self, permap):
@@ -111,14 +147,35 @@ class TestPermapFiller:
         rng = permap.pmf.ranges['Tdbo']
         chunk = reordered.xs(rng.left, level='Tdbo', drop_level=False)
         left_bound = rng.left - 1e-5 * rng.length
-        zeros_under = pd.DataFrame(
-            0,
-            index=chunk.index,
-            columns=chunk.columns
-        ).rename(index={rng.left: left_bound})
+        right_bound = rng.right + 1e-5 * rng.length
+        zeros = pd.DataFrame(0, index=chunk.index, columns=chunk.columns)
+        zeros_left = zeros.rename(index={rng.left: left_bound})
+        zeros_right = zeros.rename(index={rng.left: right_bound})
         assert_frame_equal(
-            pd.concat([zeros_under, reordered]),
-            permap.pmf.limit_operating_range('Tdbo')
+            pd.concat([zeros_left, reordered, zeros_right]),
+            permap.pmf.limit_operating_range(
+                'Tdbo',
+                side='both',
+                keep_order=False
+            )
+        )
+
+    def test_extend_to_range(self, mode, complete_permap, extended_ranges):
+        level = 'Tdbo'
+        reordered = complete_permap.swaplevel(0, level).sort_index()
+        if mode == 'heating':
+            lowest_entry = reordered.index.get_level_values(0).min()
+            lowest = extended_ranges[level].left
+            left = (
+                reordered.xs(lowest_entry, level=0, drop_level=False)
+                .rename(index={lowest_entry: lowest})
+            )
+        else:
+            left = pd.DataFrame()  # Check empty in cooling
+        complete_permap.pmf.ranges[level] = extended_ranges[level]
+        assert_frame_equal(
+            pd.concat([left, reordered]),
+            complete_permap.pmf.extend_to_range(level, side='left')
         )
 
     def test_mode(self, mode, permap):
@@ -262,7 +319,7 @@ class TestPermapFiller:
             extended
         )
 
-    def test_fillmap(self, mode, permap, filled_table):
+    def test_fill(self, mode, permap, filled_table):
         freq_entries = np.arange(1, 14 if mode == 'cooling' else 21) / 10
         permap.pmf.entries['freq'] = freq_entries
         permap.pmf.mode = mode
@@ -271,5 +328,5 @@ class TestPermapFiller:
         else:
             permap.pmf.manval_factors['freq'] = 119 / 60
             rated_values = pd.DataFrame({'capacity': [4.69], 'power': [1.01]})
-        filled_map = permap.pmf.fillmap(norm=rated_values)
+        filled_map = permap.pmf.fill(norm=rated_values)
         assert_frame_equal(filled_map, filled_table)

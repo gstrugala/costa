@@ -1,10 +1,13 @@
+from pathlib import Path
+
 import pandas as pd
 
 
 def build_cooling_permap(datafile=None):
     """Read cooling performance map into an extendable dataframe."""
     if datafile is None:
-        datafile = "fillomino/resources/manufacturer-data-cooling.txt"
+        parent = Path(__file__).parent
+        datafile = parent/"resources/manufacturer-data-cooling.txt"
     data = pd.read_csv(datafile, sep=' ', skiprows=2).to_numpy()
     Tdbo, raw_data = data[:, 0], data[:, 1:]
     r = pd.read_csv(datafile, sep=' ', index_col=0, nrows=2, header=None)
@@ -30,7 +33,8 @@ def build_cooling_permap(datafile=None):
 def build_heating_permap(datafile=None):
     """Read heating performance map into an extendable dataframe."""
     if datafile is None:
-        datafile = "fillomino/resources/manufacturer-data-heating.txt"
+        parent = Path(__file__).parent
+        datafile = parent/"resources/manufacturer-data-heating.txt"
     data = pd.read_csv(datafile, sep=' ', skiprows=1).to_numpy()
     Tdbo, raw_data = data[:, 0], data[:, 2:]
     Tdbr = pd.read_csv(datafile, sep=' ', nrows=1, header=None).iloc[0, 1:-1]
