@@ -3,6 +3,8 @@ An extension of pandas DataFrames to fill incomplete performance maps.
 """
 
 import warnings
+from copy import deepcopy
+from collections.abc import MutableMapping
 
 import pandas as pd
 
@@ -54,35 +56,44 @@ class PermapFiller:
     ranges : dict
         Operating ranges for the input quantities of the performance map.
         The limits of the performance map are used for the default ranges.
-    restricted : bool, default False
-        ``True`` if performance map operating range have been limited using
-        the `PermapFiller.limit_operating_ranges` method.
+    restricted_levels : dict
+        Each key corresponds to a level name of the performance map.
+        The associated value is either ``None``, ``'left'``, ``'right'`` or
+        ``'both'``, i.e. the side(s) where the level has already been
+        restricted.
 
     Examples
     --------
     Build an incomplete performance map and
     set (missing) normalized frequency entries:
 
-    >>> initial_map = fmo.build_heating_permap()
-    >>> heat_map = initial_map.pmf.set_entries('freq', np.arange(1, 21)/10)
+    >>> hm = fmo.build_heating_permap()
+    >>> hm.pmf.entries['freq'] = np.arange(1, 21) / 10
+
+    There are no corrections or manufacturer values factors by default
+    until the operating mode is set:
+
+    >>> hm.pmf.corrections is None and hm.pmf.manval_factors is None
+    True
+    >>> hm.pmf.mode = 'heating'
+    >>> hm.pmf.manval_factors
+    {'freq': 1, 'AFR': 1}
+    >>> corr = hm.pmf.corrections['freq']['power']
+    >>> corr(0.5)
+    0.20785906320354824
+    >>> corr(1)
+    0.9999997589861805
 
     If performances are not given at rated frequency, a correction
     factor must be set.  Assuming performances are given at maximum
     frequency (120 Hz) and rated frequency is 60 Hz, the frequency
     correction ratio should be
 
-    >>> heat_map.pmf.manval_factors['freq'] = 120 / 60
+    >>> hm.pmf.manval_factors['freq'] = 120 / 60
 
-    There are no corrections by default until the operating mode is set:
-
-    >>> heat_map.pmf.corrections is None
-    True
-    >>> heat_map.pmf.mode = 'heating'
-    >>> corr = heat_map.pmf.corrections['freq']['power']
-    >>> corr(0.5)
-    0.20785906320354824
-    >>> corr(1)
-    0.9999997589861805
+    This value will affect the output of the method
+    ``PermapFiller.correct``, and thus also ``PermapFiller.extend`` and
+    ``PermapFiller.fill``.
 
     """
 
@@ -93,7 +104,7 @@ class PermapFiller:
         '_corrections',
         '_manval_factors',
         '_ranges',
-        '_restricted'
+        '_restricted_levels'
     )
 
     def __init__(self, pandas_obj):
@@ -104,8 +115,43 @@ class PermapFiller:
         self._entries = {'freq': [0.2, 0.5, 1], 'AFR': [1e-5, 1]}
         self._corrections = None
         self._manval_factors = None
-        self._ranges = self.index_ranges(pandas_obj.index)
-        self._restricted = False
+        self._ranges = ADict(
+            self.index_ranges(pandas_obj.index),
+            pmf=self,
+            setitem=set_range
+        )
+        self._restricted_levels = {key: None for key in self.ranges}
+
+    def update_data(self, df, update_ranges=True):
+        """Return a new performance map with new data.
+
+        Parameters
+        ----------
+        df : DataFrame
+            The new data.
+        update_ranges : bool, default True
+            If ``False``, the original operating ranges will be kept.
+
+        Returns
+        -------
+        DataFrame
+            Data in df with attributes ranges and restricted_levels
+            adjusted accordingly from the index of df.
+
+        """
+        pm = df.pmf.copyattr(self)
+        if update_ranges:
+            pm.pmf._ranges = ADict(
+                self.index_ranges(df.index),
+                pmf=pm.pmf,
+                setitem=set_range
+            )
+        pm.pmf._restricted_levels = {key: None for key in pm.pmf.ranges}
+        return pm
+
+    @property
+    def data(self):
+        return self._obj
 
     @property
     def ranges(self):
@@ -114,9 +160,14 @@ class PermapFiller:
     @ranges.setter
     def ranges(self, new_ranges):
         """Setter for the `ranges` property."""
-        if any(key not in self._obj.index.names for key in new_ranges.keys()):
+        if any(key not in self.data.index.names for key in new_ranges.keys()):
             raise ValueError("range keys must be in table level names.")
-        self._ranges = new_ranges
+        if isinstance(new_ranges, ADict):
+            self._ranges = new_ranges
+        elif isinstance(new_ranges, dict):
+            self._ranges = ADict(new_ranges, pmf=self, setitem=set_range)
+        else:
+            raise TypeError("'ranges' attribute must be a dict.")
 
     @classmethod
     def index_range(cls, index, level):
@@ -150,10 +201,7 @@ class PermapFiller:
 
     def limit_operating_ranges(self, side='both', levels=None, omit=None):
         """Apply `PermapFiller.limit_operating_range` to all levels."""
-        if self.restricted:
-            raise RuntimeError("values are already restricted.")
         new = self.copy()
-        new.pmf._restricted = True
         original_level_order = new.index.names
         levels = set(levels or new.pmf.ranges.keys()) - set(omit or [])
         for level in levels:
@@ -214,6 +262,14 @@ class PermapFiller:
         """
         if side not in ('left', 'right', 'both'):
             raise ValueError("'side' must be 'left', 'right' or 'both'.")
+        prev_restriction = self.restricted_levels[level]
+        if prev_restriction in (side, 'both'):
+            plural = 's' if prev_restriction == 'both' else ''
+            raise RuntimeError(
+                f"The level {level} was already restricted on "
+                f"{prev_restriction} side{plural}."
+            )
+
         extended = (
             self.extend_to_range(level, side=side)
             .swaplevel(0, level)  # put level as top level for stacking
@@ -241,15 +297,21 @@ class PermapFiller:
             zeros_right = pd.DataFrame()
 
         if keep_order:
-            limited = (
+            restricted = (
                 pd.concat([zeros_left, extended, zeros_right])
-                .reorder_levels(self._obj.index.names)
+                .reorder_levels(self.data.index.names)
                 .sort_index()
+                .pmf.copyattr(self)
             )
         else:
-            limited = pd.concat([zeros_left, extended, zeros_right])
-
-        return limited.pmf.copyattr(self)
+            restricted = (
+                pd.concat([zeros_left, extended, zeros_right])
+                .pmf.copyattr(self)
+            )
+        restricted.pmf._restricted_levels[level] = (
+                side if prev_restriction is None else 'both'
+        )
+        return restricted
 
     def extend_to_range(self, level, side='both'):
         """Extend the performance map with constant values.
@@ -348,31 +410,28 @@ class PermapFiller:
         return self._normalized
 
     @property
-    def restricted(self):
-        return self._restricted
+    def restricted_levels(self):
+        return self._restricted_levels
 
     def copy(self):
         return self.copyattr(self)
 
     def copyattr(self, other):
-        """Return a copy of `self` with some selected attributes copied
-        from `other`.
+        """Return a copy of the PermapFiller with some selected attributes
+        copied from `other`.
         """
-        new = self._obj.copy()
-        if isinstance(other, PermapFiller):
-            for attribute in PermapFiller._attributes_to_copy:
-                setattr(new.pmf, attribute, getattr(other, attribute))
+        new = self.data.copy(deep=True)
+        if isinstance(other, PermapFiller) or hasattr(other, 'pmf'):
+            pmf = other.pmf if hasattr(other, 'pmf') else other
+            for attribute in self._attributes_to_copy:
+                setattr(new.pmf, attribute, deepcopy(getattr(pmf, attribute)))
         else:
-            if hasattr(other, 'pmf'):
-                for attribute in PermapFiller._attributes_to_copy:
-                    setattr(new.pmf, attribute, getattr(other.pmf, attribute))
-            else:
-                first = type(other).__name__[0].lower()
-                aan = 'a' if first in ('a', 'e', 'i', 'o', 'u') else 'an'
-                raise TypeError(
-                    f"argument should be a {type(self).__name__}. "
-                    f"You provided {aan} {type(other).__name__}."
-                )
+            first = type(other).__name__[0].lower()
+            aan = 'a' if first in ('a', 'e', 'i', 'o', 'u') else 'an'
+            raise TypeError(
+                f"argument should be a {type(self).__name__}. "
+                f"You provided {aan} {type(other).__name__}."
+            )
         return new
 
     @property
@@ -422,10 +481,10 @@ class PermapFiller:
 
         Examples
         --------
-        >>> initial_map = fmo.build_cooling_permap()
-        >>> cool_map = initial_map.pmf.set_entries('freq', np.arange(1, 14)/10)
-        >>> cool_map.pmf.mode = 'cooling'
-        >>> cool_map
+        >>> cm = fmo.build_cooling_permap()
+        >>> cm.pmf.entries['freq'] =  np.arange(1, 14) / 10
+        >>> cm.pmf.mode = 'cooling'
+        >>> cm
         cooling          capacity  power
         Tdbr Twbr Tdbo
         17.8 12.2 -10.0      3.03   0.28
@@ -439,12 +498,11 @@ class PermapFiller:
                    35.0      3.94   0.81
                    40.0      3.33   0.75
                    46.0      3.07   0.75
-
         [72 rows x 2 columns]
 
         >>> rated_values = pd.DataFrame({'capacity': [3.52], 'power': [0.79]})
-        >>> norm = cool_map.pmf.normalize(rated_values)
-        >>> norm
+        >>> cm_norm = cm.pmf.normalize(rated_values)
+        >>> cm_norm
         cooling          capacity     power
         Tdbr Twbr Tdbo
         17.8 12.2 -10.0  0.860795  0.354430
@@ -452,17 +510,16 @@ class PermapFiller:
                    0.0   0.846591  0.455696
                    5.0   0.840909  0.493671
                    10.0  0.835227  0.506329
-        ...                   ...       ...
+                           ...       ...
         32.2 22.8  25.0  1.261364  0.822785
                    30.6  1.193182  0.924051
                    35.0  1.119318  1.025316
                    40.0  0.946023  0.949367
                    46.0  0.872159  0.949367
-
         [72 rows x 2 columns]
 
         Trying to normalize again will fail:
-        >>> norm.normalize(rated_values)
+        >>> cm_norm.pmf.normalize(rated_values)
         Traceback (most recent call last):
         ...
         RuntimeError: values are already normalized.
@@ -474,13 +531,13 @@ class PermapFiller:
         pm = self.copy()
         if values is None:
             return pm
-        pmcols, vacols = set(pm.pmf._obj.columns), set(values.columns)
+        pmcols, vacols = set(pm.pmf.data.columns), set(values.columns)
         mismatch = pmcols ^ vacols
         if mismatch < {'capacity', 'power', 'COP'}:
             if len(pmcols) > len(vacols):
                 values = pm.pmf._add_missing_df_column(values)
             elif len(pmcols) < len(vacols):
-                pm.pmf._obj = pm.pmf._add_missing_df_column(pm._obj)
+                pm.pmf.data = pm.pmf._add_missing_df_column(pm.pmf.data)
             for quantity, value in values.iteritems():
                 pm[quantity] /= value[0]
             pm.pmf._normalized = True
@@ -663,7 +720,7 @@ class PermapFiller:
 
     def _check_columns(self, keys):
         """Check coherence between column index and a set of keys."""
-        columns, keys = set(self._obj.columns), set(keys)
+        columns, keys = set(self.data.columns), set(keys)
         if columns != keys:
             unmatched_cols = tuple(columns - keys)
             unmatched_keys = tuple(keys - columns)
@@ -871,11 +928,12 @@ class PermapFiller:
         """
         self._check_columns(corrections.keys())
         manval = self.manval_factors[name]
-        extrusions = [
-            self.correct(corrections, entry, manval) for entry in entries
-        ]
-        new = pd.concat(extrusions, keys=entries, names=[name])
-        return new.pmf.copyattr(self)
+        new = pd.concat(
+            [self.correct(corrections, entry, manval) for entry in entries],
+            keys=entries,
+            names=[name]
+        )
+        return self.update_data(new)
 
     def fill(self, norm=None):
         """Extend the performance map along a new dimension.
@@ -912,10 +970,10 @@ class PermapFiller:
         --------
         Build cooling performance map and set the missing frequency entries
 
-        >>> initial_map = fmo.build_cooling_permap()
-        >>> cool_map.pmf.mode = 'cooling'
-        >>> cool_map = initial_map.pmf.set_entries('freq', np.arange(1, 14)/10)
-        >>> cool_map
+        >>> cm = fmo.build_cooling_permap()
+        >>> cm.pmf.mode = 'cooling'
+        >>> cm.pmf.entries['freq'] =  np.arange(1, 14) / 10
+        >>> cm
         cooling          capacity  power
         Tdbr Twbr Tdbo
         17.8 12.2 -10.0      3.03   0.28
@@ -929,28 +987,26 @@ class PermapFiller:
                    35.0      3.94   0.81
                    40.0      3.33   0.75
                    46.0      3.07   0.75
-
         [72 rows x 2 columns]
 
         Fill values for frequency ('freq'), wet-bulb room temperature
         ('Twbr') and air flow rate ('AFR'), and normalize data:
 
         >>> rated_values = pd.DataFrame({'capacity': [3.52], 'power': [0.79]})
-        >>> cool_map.pmf.fill(norm=rated_values)
-        cooling                      power  sensible_capacity  latent_capacity
-        Tdbr Twbr Tdbo  AFR freq
-        17.8 12.2 -10.0 0   0.1   0.003268           0.010849         0.013296
-                            0.2   0.015247           0.050620         0.062037
-                            0.3   0.037015           0.122602         0.150254
-                            0.4   0.068330           0.206249         0.252767
-                            0.5   0.108010           0.264530         0.324193
-        ...                            ...                ...              ...
-        32.2 22.8  46.0 1   0.9   0.821848           0.571090         0.206256
-                            1.0   0.949367           0.640746         0.231413
-                            1.1   1.064119           0.712520         0.257335
-                            1.2   1.163336           0.777625         0.280849
-                            1.3   1.245864           0.832545         0.300684
-
+        >>> cm.pmf.fill(norm=rated_values)
+        cooling                          power  sensible_capacity  latent_capacity
+        Tdbr Twbr Tdbo  AFR     freq
+        17.8 12.2 -10.0 0.00001 0.1   0.003268           0.010849         0.013296
+                                0.2   0.015247           0.050620         0.062037
+                                0.3   0.037015           0.122602         0.150254
+                                0.4   0.068330           0.206249         0.252767
+                                0.5   0.108010           0.264530         0.324193
+                                        ...                ...              ...
+        32.2 22.8  46.0 1.00000 0.9   0.821848           0.571090         0.206256
+                                1.0   0.949367           0.640746         0.231413
+                                1.1   1.064119           0.712520         0.257335
+                                1.2   1.163336           0.777625         0.280849
+                                1.3   1.245864           0.832545         0.300684
         [11232 rows x 3 columns]
 
         """
@@ -969,30 +1025,35 @@ class PermapFiller:
 
         if self.mode == 'heating':
             new_level_order = ['Tdbr', 'Tdbo', 'AFR', 'freq']
-            permap = with_AFR.reorder_levels(new_level_order).sort_index()
-            permap = permap.pmf.copyattr(self).pmf.normalize(norm)
-            permap = permap.reindex(['power', 'capacity'], axis=1)
+            pm_norm = (
+                with_AFR.reorder_levels(new_level_order).sort_index()
+                .pmf.copyattr(with_AFR).pmf.normalize(norm)
+            )
+            permap = pm_norm.reindex(['power', 'capacity'], axis='columns')
         elif self.mode == 'cooling':
-            without_Twbr = with_AFR.droplevel('Twbr').pmf.copyattr(self)
+            without_Twbr = with_AFR.droplevel('Twbr').pmf.copyattr(with_AFR)
             Twbr = with_AFR.index.get_level_values('Twbr').unique().to_numpy()
             Twbr_corr = self.get_correction('Twbr')
             with_Twbr = without_Twbr.pmf.extend(Twbr_corr, Twbr, name='Twbr')
-            permap = with_Twbr.pmf.normalize(norm)
-            Tdb = permap.index.get_level_values('Tdbr').to_numpy()
-            Twb = permap.index.get_level_values('Twbr').to_numpy()
+            pm_norm = with_Twbr.pmf.normalize(norm)
+            Tdb = pm_norm.index.get_level_values('Tdbr').to_numpy()
+            Twb = pm_norm.index.get_level_values('Twbr').to_numpy()
             SHR = self.get_correction('SHR')
-            permap['sensible_capacity'] = permap.capacity * SHR(Tdb - Twb)
-            permap['latent_capacity'] = (
-                permap.capacity - permap.sensible_capacity
+            pm_norm['sensible_capacity'] = pm_norm.capacity * SHR(Tdb - Twb)
+            pm_norm['latent_capacity'] = (
+                pm_norm.capacity - pm_norm.sensible_capacity
             )
-            permap = permap.drop('capacity', axis='columns')
             new_level_order = ['Tdbr', 'Twbr', 'Tdbo', 'AFR', 'freq']
-            permap = permap.reorder_levels(new_level_order).sort_index()
             new_index_order = ['power', 'sensible_capacity', 'latent_capacity']
-            permap = permap.reindex(new_index_order, axis='columns')
+            permap = (
+                pm_norm.drop('capacity', axis='columns')
+                .reorder_levels(new_level_order)
+                .sort_index()
+                .reindex(new_index_order, axis='columns')
+            )
         else:
             raise ValueError("mode must either be heating or cooling")
-        return permap.pmf.copyattr(self)
+        return permap.pmf.copyattr(pm_norm)
 
     def print_permap(self, filename, majororder='row'):
         """Write performance map to a file using a format compatible with
@@ -1014,7 +1075,7 @@ class PermapFiller:
         if order not in ('row', 'col'):
             raise TypeError("order must be either 'row' or 'col'.")
 
-        permap_formatted = pd.concat([self._obj], keys=[''], names=['!#'])
+        permap_formatted = pd.concat([self.data], keys=[''], names=['!#'])
         if order == 'col':
             levels = permap_formatted.index.names
             flip_levels = [levels[0]] + levels[-1:0:-1]
@@ -1028,11 +1089,11 @@ class PermapFiller:
                 f.write(line.rstrip('\r\n') + '\n' + content)
 
         def fetch_index(i):
-            index = self._obj.index.get_level_values(i).drop_duplicates()
+            index = self.data.index.get_level_values(i).drop_duplicates()
             return index.name, index.values
 
         prepend_line("!#\n!# Performance map\n!#")
-        nlevels = self._obj.index.nlevels
+        nlevels = self.data.index.nlevels
         for name, values in (fetch_index(i) for i in range(nlevels-1, -1, -1)):
             values_str = '\t'.join(str(v) for v in values)
             s = f"!# {name} values\n   {values_str}\n"
@@ -1051,3 +1112,52 @@ class PermapFiller:
         )
 
         prepend_line(warning)
+
+
+class ADict(MutableMapping):
+    """A dictionary with customizable __setitem__ method."""
+
+    def __init__(self, *args, pmf=None, setitem=None, **kwargs):
+        self.store = dict()
+        self._pmf = pmf
+        self._setitem = setitem
+        self.update(dict(*args, **kwargs))  # use the free update to set keys
+
+    def __getitem__(self, key):
+        return self.store[key]
+
+    def __setitem__(self, key, value):
+        if self._setitem is None:
+            self.store[key] = value
+        else:
+            self._setitem(self, self._pmf, key, value)
+
+    def __delitem__(self, key):
+        del self.store[key]
+
+    def __iter__(self):
+        return iter(self.store)
+
+    def __len__(self):
+        return len(self.store)
+
+    def __repr__(self):
+        return self.store.__repr__()
+
+
+def set_range(self, pmf, key, value):
+    if pmf is None:
+        raise TypeError("'pmf' cannot be None.")
+    if key not in pmf.data.index.names:
+        raise ValueError("range keys must be in table level names.")
+    if isinstance(value, pd.Interval):
+        # Ensure that the interval is closed
+        self.store[key] = pd.Interval(value.left, value.right, closed='both')
+    else:
+        try:
+            self.store[key] = pd.Interval(*value, closed='both')
+        except TypeError:
+            raise TypeError(
+                "The instance set must be an iterable with the range bounds,\n"
+                "or a 'pandas.Interval' object."
+            )

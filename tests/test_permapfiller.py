@@ -29,7 +29,6 @@ def complete_permap(mode, permap):
         'power': [{'cooling': 0.79, 'heating': 1.01}[mode]]
     })
     complete = permap.pmf.fill(norm=rated)
-    complete.pmf.ranges = complete.pmf.index_ranges(complete.index)
     return complete
 
 
@@ -98,6 +97,23 @@ class TestPermapFiller:
         pmf = fmo.PermapFiller(permap)
         assert isinstance(permap.pmf, type(pmf))
 
+    def test_update_data(self, mode, permap):
+        old_max, new_max = {'cooling': (32.2, 35), 'heating': (23.9, 25)}[mode]
+        new = (
+            (2 * permap.copy())
+            .rename(index={old_max: new_max}, level='Tdbr')
+            .pmf.copyattr(permap)
+        )
+        new.index.set_names('Toa', level='Tdbo', inplace=True)
+        updated = permap.pmf.update_data(new)
+        assert_frame_equal(updated, new)
+        rng = new.pmf.ranges
+        rng['Tdbr'] = [rng['Tdbr'].left, new_max]
+        rng = dict(rng)
+        rng['Toa'] = rng.pop('Tdbo')
+        assert updated.pmf.ranges == rng
+        assert updated.pmf.restricted_levels.keys() == rng.keys()
+
     def test_ranges(self, permap):
         ranges = fmo.PermapFiller.index_ranges(permap.index)
         assert ranges == permap.pmf.ranges
@@ -133,7 +149,9 @@ class TestPermapFiller:
             .sort_index()
             .pmf.copyattr(restricted)
         )
-        assert restricted.pmf.restricted
+        assert all([
+            side == 'both' for side in restricted.pmf.restricted_levels.values()
+        ])
         assert_frame_equal(restricted, restricted_range_table)
         complete_permap.pmf.ranges.update(extended_ranges)
         restricted = (
