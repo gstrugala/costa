@@ -122,7 +122,7 @@ class PermapFiller:
         )
         self._restricted_levels = {key: None for key in self.ranges}
 
-    def update_data(self, df, update_ranges=True):
+    def update_data(self, df, update_ranges=True, keep_restrictions=False):
         """Return a new performance map with new data.
 
         Parameters
@@ -131,6 +131,9 @@ class PermapFiller:
             The new data.
         update_ranges : bool, default True
             If ``False``, the original operating ranges will be kept.
+        keep_restrictions : bool, default False
+            If ``True``, any level already restricted will keep the same
+            restriction ('left', 'right' or 'both').
 
         Returns
         -------
@@ -147,6 +150,10 @@ class PermapFiller:
                 setitem=set_range
             )
         pm.pmf._restricted_levels = {key: None for key in pm.pmf.ranges}
+        if keep_restrictions:
+            for key, restriction in self.restricted_levels.items():
+                if restriction is not None and key in pm.pmf.ranges:
+                    pm.pmf._restricted_levels[key] = restriction
         return pm
 
     @property
@@ -266,7 +273,7 @@ class PermapFiller:
         if prev_restriction in (side, 'both'):
             plural = 's' if prev_restriction == 'both' else ''
             raise RuntimeError(
-                f"The level {level} was already restricted on "
+                f"Level '{level}' was already restricted on "
                 f"{prev_restriction} side{plural}."
             )
 
@@ -482,7 +489,7 @@ class PermapFiller:
         Examples
         --------
         >>> cm = fmo.build_cooling_permap()
-        >>> cm.pmf.entries['freq'] =  np.arange(1, 14) / 10
+        >>> cm.pmf.entries['freq'] =  np.arange(1, 15) / 10
         >>> cm.pmf.mode = 'cooling'
         >>> cm
         cooling          capacity  power
@@ -853,9 +860,10 @@ class PermapFiller:
 
     def _add_missing_column(self):
         """See classmethod `PermapFiller._add_missing_df_column`."""
-        new = self.copy()
-        new.pmf._obj = new.pmf._add_missing_df_column(new.pmf._obj)
-        return new
+        return self.update_data(
+            self._add_missing_df_column(self.data),
+            keep_restrictions=True
+        )
 
     def correct(self, corrections, entry, manval=1):
         """Apply corrections to ouput quantities.
@@ -933,7 +941,7 @@ class PermapFiller:
             keys=entries,
             names=[name]
         )
-        return self.update_data(new)
+        return self.update_data(new, keep_restrictions=True)
 
     def fill(self, norm=None):
         """Extend the performance map along a new dimension.
@@ -964,7 +972,7 @@ class PermapFiller:
         --------
         PermapFiller.correct : apply corrections to ouput quantities.
         PermapFiller.extend : extend performance map using corrections.
-        PermapFiller.print_permap : write performance map to file.
+        PermapFiller.write : write performance map to file.
 
         Examples
         --------
@@ -972,7 +980,7 @@ class PermapFiller:
 
         >>> cm = fmo.build_cooling_permap()
         >>> cm.pmf.mode = 'cooling'
-        >>> cm.pmf.entries['freq'] =  np.arange(1, 14) / 10
+        >>> cm.pmf.entries['freq'] =  np.arange(1, 15) / 10
         >>> cm
         cooling          capacity  power
         Tdbr Twbr Tdbo
@@ -1022,7 +1030,6 @@ class PermapFiller:
         with_AFR = with_freq.pmf.extend(
             AFR_corr, self.entries['AFR'], name='AFR'
         )
-
         if self.mode == 'heating':
             new_level_order = ['Tdbr', 'Tdbo', 'AFR', 'freq']
             pm_norm = (
@@ -1055,9 +1062,9 @@ class PermapFiller:
             raise ValueError("mode must either be heating or cooling")
         return permap.pmf.copyattr(pm_norm)
 
-    def print_permap(self, filename, majororder='row'):
+    def write(self, filename, majororder='row'):
         """Write performance map to a file using a format compatible with
-        the TRNSYS Type3254.
+        the TRNSYS Type 3254.
 
         Parameters
         ----------

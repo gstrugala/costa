@@ -14,7 +14,7 @@ import fillomino as fmo
 
 # Cooling
 cm = fmo.build_cooling_permap()
-cm.pmf.entries['freq'] = np.arange(1, 14)/10
+cm.pmf.entries['freq'] = np.arange(1, 15)/10
 cm.pmf.mode = 'cooling'
 rated = pd.DataFrame({'capacity': [3.52], 'power': [0.79]})
 cmf = cm.pmf.fill(norm=rated)

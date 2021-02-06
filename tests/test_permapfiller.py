@@ -19,7 +19,7 @@ def permap(mode, manufacturer_data_file):
 
 @pytest.fixture
 def complete_permap(mode, permap):
-    freq_entries = np.arange(1, {'cooling': 14, 'heating': 21}[mode]) / 10
+    freq_entries = np.arange(1, {'cooling': 15, 'heating': 21}[mode]) / 10
     permap.pmf.entries['freq'] = freq_entries
     permap.pmf.mode = mode
     if mode == 'heating':
@@ -338,7 +338,7 @@ class TestPermapFiller:
         )
 
     def test_fill(self, mode, permap, filled_table):
-        freq_entries = np.arange(1, 14 if mode == 'cooling' else 21) / 10
+        freq_entries = np.arange(1, {'cooling': 15, 'heating': 21}[mode]) / 10
         permap.pmf.entries['freq'] = freq_entries
         permap.pmf.mode = mode
         if mode == 'cooling':
