@@ -6,6 +6,7 @@ import warnings
 from copy import deepcopy
 from collections.abc import MutableMapping
 
+import numpy as np
 import pandas as pd
 
 from .defaults import build_default_corrections
@@ -1045,11 +1046,19 @@ class PermapFiller:
             pm_norm = with_Twbr.pmf.normalize(norm)
             Tdb = pm_norm.index.get_level_values('Tdbr').to_numpy()
             Twb = pm_norm.index.get_level_values('Twbr').to_numpy()
+            invalid_states = Tdb < Twb
+            valid_states = np.logical_not(invalid_states)
+            wb_depression = Tdb[valid_states] - Twb[valid_states]
             SHR = self.get_correction('SHR')
-            pm_norm['sensible_capacity'] = pm_norm.capacity * SHR(Tdb - Twb)
-            pm_norm['latent_capacity'] = (
-                pm_norm.capacity - pm_norm.sensible_capacity
+            pm_norm.loc[valid_states, 'sensible_capacity'] = (
+                pm_norm.capacity.iloc[valid_states] * SHR(wb_depression)
             )
+            pm_norm.loc[valid_states, 'latent_capacity'] = (
+                pm_norm.capacity.iloc[valid_states]
+                - pm_norm.sensible_capacity.iloc[valid_states]
+            )
+            # Put -1 flag at invalid states
+            pm_norm.iloc[invalid_states, :] = -1
             new_level_order = ['Tdbr', 'Twbr', 'Tdbo', 'AFR', 'freq']
             new_index_order = ['power', 'sensible_capacity', 'latent_capacity']
             permap = (
