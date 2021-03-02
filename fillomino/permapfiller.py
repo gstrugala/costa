@@ -207,166 +207,6 @@ class PermapFiller:
         """Get ranges for each level of a pandas MultiIndex as a dict."""
         return {level: cls.index_range(index, level) for level in index.names}
 
-    def limit_operating_ranges(self, side='both', levels=None, omit=None):
-        """Apply `PermapFiller.limit_operating_range` to all levels."""
-        new = self.copy()
-        original_level_order = new.index.names
-        levels = set(levels or new.pmf.ranges.keys()) - set(omit or [])
-        for level in levels:
-            new = new.pmf.limit_operating_range(
-                level,
-                side=side,
-                keep_order=False
-            )
-        return (
-            new.reorder_levels(original_level_order)
-            .sort_index()
-            .pmf.copyattr(new)
-        )
-
-    def limit_operating_range(
-            self,
-            level,
-            side='both',
-            left_shift=None,
-            right_shift=None,
-            keep_order=True
-    ):
-        """Add an entry filled with zeros just below the lowest one.
-
-        To set a lower/upper limit in a given level of a performance table,
-        entries are added just below/above the lowest/highest entry of that
-        level, corresponding to the left/right bound of the associated
-        range.  All values associated with these new entries are zeros.
-        If the left/right if smaller/larger than the actual lowest/highest
-        entry of the performance map, an additional entry with constant
-        performances is added with the value of the range's left/right
-        bound.
-
-        Parameters
-        ----------
-        level
-            The name of the level where the zeros are to be added.
-        side : {'both', 'left', 'right'}
-            Side on which the performance map level must be limited.
-        left_shift : optional float
-            Distance between the range's left bound and the new entry.
-            If none is specified, the default is 1e-5 times the length of
-            the range of the given level.
-        right_shift : optional float
-            Distance between the range's right bound and the new entry.
-            If none is specified, the default is 1e-5 times the length of
-            the range of the given level.
-        keep_order : bool, default True
-            If ``False``, the level order with not be kept the same as the
-            original, as the level given as parameter will be on top.
-
-        Returns
-        -------
-        DataFrame
-            Same data with addditional entries filled with zeros.
-            The level order may be different, if keep_order is ``False``.
-
-        """
-        if side not in ('left', 'right', 'both'):
-            raise ValueError("'side' must be 'left', 'right' or 'both'.")
-        prev_restriction = self.restricted_levels[level]
-        if prev_restriction in (side, 'both'):
-            plural = 's' if prev_restriction == 'both' else ''
-            raise RuntimeError(
-                f"Level '{level}' was already restricted on "
-                f"{prev_restriction} side{plural}."
-            )
-
-        extended = (
-            self.extend_to_range(level, side=side)
-            .swaplevel(0, level)  # put level as top level for stacking
-            .sort_index()
-        )
-        rng = self.ranges[level]
-        chunk = (
-            extended.xs(rng.left, level=0, drop_level=False)
-            .rename(index={rng.left: 'new'})
-        )
-
-        def zeros_like(df):
-            return pd.DataFrame(0, index=df.index, columns=df.columns)
-
-        if side in ('left', 'both') or left_shift is not None:
-            left_bound = rng.left - (left_shift or 1e-5 * rng.length)
-            zeros_left = zeros_like(chunk).rename(index={'new': left_bound})
-        else:
-            zeros_left = pd.DataFrame()
-
-        if side in ('right', 'both') or right_shift is not None:
-            right_bound = rng.right + (right_shift or 1e-5 * rng.length)
-            zeros_right = zeros_like(chunk).rename(index={'new': right_bound})
-        else:
-            zeros_right = pd.DataFrame()
-
-        if keep_order:
-            restricted = (
-                pd.concat([zeros_left, extended, zeros_right])
-                .reorder_levels(self.data.index.names)
-                .sort_index()
-                .pmf.copyattr(self)
-            )
-        else:
-            restricted = (
-                pd.concat([zeros_left, extended, zeros_right])
-                .pmf.copyattr(self)
-            )
-        restricted.pmf._restricted_levels[level] = (
-                side if prev_restriction is None else 'both'
-        )
-        return restricted
-
-    def extend_to_range(self, level, side='both'):
-        """Extend the performance map with constant values.
-
-        If the performance map domain is smaller than the one covered by
-        the interval in `PermapFiller.ranges` corresponding to the
-        specified level, it is extended to get the same coverage as the
-        intervals by extrapolating with constant performance values.
-
-        Parameters
-        ----------
-        level
-            The name of the level where the performance map domain must be
-            extended.
-        side : {'both', 'left', 'right'}
-            Side on which the performance map level must be extended.
-
-        Returns
-        -------
-        DataFrame
-            Input data with entries covering the whole range for the
-            specified level.
-
-        """
-        if side not in ('left', 'right', 'both'):
-            raise ValueError("'side' must be 'left', 'right' or 'both'.")
-        rng = self.ranges[level]
-        permap = self.copy()
-        reordered = permap.swaplevel(0, level).sort_index()
-        lowest_entry = reordered.index.get_level_values(0).min()
-        if rng.left < lowest_entry and side in ('both', 'left'):
-            left = (
-                reordered.xs(lowest_entry, level=0, drop_level=False)
-                .rename(index={lowest_entry: rng.left})
-            )
-        else:
-            left = pd.DataFrame()
-        highest_entry = reordered.index.get_level_values(0).max()
-        if rng.right > highest_entry and side in ('both', 'right'):
-            right = (
-                reordered.xs(highest_entry, level=0, drop_level=False)
-                .rename(index={highest_entry: rng.right})
-            )
-        else:
-            right = pd.DataFrame()
-        return pd.concat([left, reordered, right]).pmf.copyattr(permap)
-
     @property
     def mode(self):
         """The operating mode corresponding to the performance data."""
@@ -1058,7 +898,7 @@ class PermapFiller:
                 - pm_norm.sensible_capacity.iloc[valid_states]
             )
             # Put -1 flag at invalid states
-            pm_norm.iloc[invalid_states, :] = -1
+            pm_norm.iloc[invalid_states, :] = -9999
             new_level_order = ['Tdbr', 'Twbr', 'Tdbo', 'AFR', 'freq']
             new_index_order = ['power', 'sensible_capacity', 'latent_capacity']
             permap = (
@@ -1105,18 +945,19 @@ class PermapFiller:
                 f.write(line.rstrip('\r\n') + '\n' + content)
 
         def fetch_index(i):
-            index = self.data.index.get_level_values(i).drop_duplicates()
+            index = self.data.index.get_level_values(i).unique()
             return index.name, index.values
 
         prepend_line("!#\n!# Performance map\n!#")
         nlevels = self.data.index.nlevels
         for name, values in (fetch_index(i) for i in range(nlevels-1, -1, -1)):
             values_str = '\t'.join(str(v) for v in values)
-            s = f"!# {name} values\n   {values_str}\n"
-            prepend_line(s.replace('(', '').replace(')', ''))
+            prepend_line(f"!# {name} values\n   {values_str}\n")
         for name, values in (fetch_index(i) for i in range(nlevels-1, -1, -1)):
-            s = f"!# Number of {name} data points\n   {len(values)}\n"
-            prepend_line(s.replace('(', '').replace(')', ''))
+            rng = self.ranges[name]
+            prepend_line(f"   {len(values)}\t{rng.left}\t{rng.right}\n")
+            s = f"!# Number of {name} data points, lower bound, upper bound\n"
+            prepend_line(s)
 
         warning = (
             "!# This is a data file for Type 3254. Do not change the format.\n"

@@ -18,19 +18,6 @@ cm.pmf.entries['freq'] = np.arange(1, 15)/10
 cm.pmf.mode = 'cooling'
 rated = pd.DataFrame({'capacity': [3.52], 'power': [0.79]})
 cmf = cm.pmf.fill(norm=rated)
-cmf.pmf.ranges = cmf.pmf.index_ranges(cmf.index)
-cmfr = (
-    cmf.pmf.limit_operating_ranges(omit=['AFR'])
-    .pmf.limit_operating_range('AFR', left_shift=1e-5)
-)
-cmfext = cmf.copy()
-cmfext.pmf.ranges['Tdbr'] = pd.Interval(15, 35, closed='both')
-cmfext.pmf.ranges['Twbr'] = pd.Interval(10, 25, closed='both')
-cmfext.pmf.ranges['Tdbo'] = pd.Interval(-10, 50, closed='both')
-cmfer = (
-    cmfext.pmf.limit_operating_ranges(omit=['AFR'])
-    .pmf.limit_operating_range('AFR', left_shift=1e-5)
-)
 
 # Heating
 hm = fmo.build_heating_permap()
@@ -39,20 +26,6 @@ hm.pmf.mode = 'heating'
 hm.pmf.manval_factors['freq'] = 119 / 60
 rated = pd.DataFrame({'capacity': [4.69], 'power': [1.01]})
 hmf = hm.pmf.fill(norm=rated)
-
-hmf.pmf.ranges = hmf.pmf.index_ranges(hmf.index)
-hmfr = (
-    hmf.pmf.limit_operating_ranges(omit=['AFR'])
-    .pmf.limit_operating_range('AFR', left_shift=1e-5)
-)
-
-hmfext = hmf.copy()
-hmfext.pmf.ranges['Tdbr'] = pd.Interval(15, 25, closed='both')
-hmfext.pmf.ranges['Tdbo'] = pd.Interval(-30, 15, closed='both')
-hmfer = (
-    hmfext.pmf.limit_operating_ranges(omit=['AFR'])
-    .pmf.limit_operating_range('AFR', left_shift=1e-5)
-)
 
 # Write to files (uncomment line if you are sure to want to overwrite).
 # cmf.to_pickle("tests/data/filled-table-cooling.pkl")

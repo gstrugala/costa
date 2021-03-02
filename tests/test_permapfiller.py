@@ -61,31 +61,6 @@ def filled_table(mode, root):
 
 
 @pytest.fixture
-def restricted_range_table(mode, root):
-    return pd.read_pickle(root / f"tests/data/restricted-range-table-{mode}.pkl")
-
-
-@pytest.fixture
-def extended_range_table(mode, root):
-    return pd.read_pickle(root / f"tests/data/extended-range-table-{mode}.pkl")
-
-
-@pytest.fixture
-def extended_ranges(mode):
-    if mode == 'cooling':
-        return {
-            'Tdbr': pd.Interval(15, 35, closed='both'),
-            'Twbr': pd.Interval(10, 25, closed='both'),
-            'Tdbo': pd.Interval(-10, 50, closed='both'),
-        }
-    else:
-        return {
-            'Tdbr': pd.Interval(15, 25, closed='both'),
-            'Tdbo': pd.Interval(-30, 15, closed='both')
-        }
-
-
-@pytest.fixture
 def no_param(mode):
     if mode == 'heating':
         pytest.skip("operating mode has no influence on this test.")
@@ -132,69 +107,6 @@ class TestPermapFiller:
 
     def test_pm(self, complete_permap, filled_table):
         assert_frame_equal(complete_permap, filled_table)
-
-    def test_limit_operating_ranges(
-        self,
-        complete_permap,
-        restricted_range_table,
-        extended_range_table,
-        extended_ranges
-    ):
-        restricted = (
-            complete_permap.pmf.limit_operating_ranges(omit=['AFR'])
-            .pmf.limit_operating_range('AFR', left_shift=1e-5)
-        )
-        restricted = (
-            restricted.reorder_levels(complete_permap.index.names)
-            .sort_index()
-            .pmf.copyattr(restricted)
-        )
-        assert all([
-            side == 'both' for side in restricted.pmf.restricted_levels.values()
-        ])
-        assert_frame_equal(restricted, restricted_range_table)
-        complete_permap.pmf.ranges.update(extended_ranges)
-        restricted = (
-            complete_permap.pmf.limit_operating_ranges(omit=['AFR'])
-            .pmf.limit_operating_range('AFR', left_shift=1e-5)
-        )
-        assert_frame_equal(restricted, extended_range_table)
-
-    def test_limit_operating_range(self, permap):
-        reordered = permap.swaplevel(0, 'Tdbo').sort_index()
-        rng = permap.pmf.ranges['Tdbo']
-        chunk = reordered.xs(rng.left, level='Tdbo', drop_level=False)
-        left_bound = rng.left - 1e-5 * rng.length
-        right_bound = rng.right + 1e-5 * rng.length
-        zeros = pd.DataFrame(0, index=chunk.index, columns=chunk.columns)
-        zeros_left = zeros.rename(index={rng.left: left_bound})
-        zeros_right = zeros.rename(index={rng.left: right_bound})
-        assert_frame_equal(
-            pd.concat([zeros_left, reordered, zeros_right]),
-            permap.pmf.limit_operating_range(
-                'Tdbo',
-                side='both',
-                keep_order=False
-            )
-        )
-
-    def test_extend_to_range(self, mode, complete_permap, extended_ranges):
-        level = 'Tdbo'
-        reordered = complete_permap.swaplevel(0, level).sort_index()
-        if mode == 'heating':
-            lowest_entry = reordered.index.get_level_values(0).min()
-            lowest = extended_ranges[level].left
-            left = (
-                reordered.xs(lowest_entry, level=0, drop_level=False)
-                .rename(index={lowest_entry: lowest})
-            )
-        else:
-            left = pd.DataFrame()  # Check empty in cooling
-        complete_permap.pmf.ranges[level] = extended_ranges[level]
-        assert_frame_equal(
-            pd.concat([left, reordered]),
-            complete_permap.pmf.extend_to_range(level, side='left')
-        )
 
     def test_mode(self, mode, permap):
         assert permap.pmf.corrections is None
