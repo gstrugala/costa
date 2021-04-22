@@ -74,7 +74,7 @@ def default_correction(mode, pminput, pmoutput=None):
     if 'freq' in pminput:
         # Choose the right parameters and function for the correction
         parameters = {
-            ('cooling', 'COP'): (3.072766359, 0.3111, 2, 1, 0.2817),
+            ('cooling', 'COP'): (2.195, 0.5185, 2, 0.8884, 0.1868),
             ('cooling', 'power'): (
                 1.5579754390604839, 0.9882406279903194, 2.238044893056409
             ),
