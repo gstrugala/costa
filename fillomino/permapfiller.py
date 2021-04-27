@@ -18,7 +18,7 @@ class PermapFiller:
     Complete missing values in a performance map.
 
     PermapFiller objects are accessible through the DataFrame accessor
-    `pmf`.  They provide a handful of methods to help extend an
+    ``pmf``.  They provide a handful of methods to help extend an
     initially incomplete performance map, given as a DataFrame.
 
     Parameters
@@ -32,13 +32,13 @@ class PermapFiller:
         The operating mode associated with the performance data.
     normalized : bool, default False.
         ``True`` if the performance data is normalized.  It is
-        automatically set to ``True`` after using the `normalize` method.
+        automatically set to ``True`` after using the ``normalize`` method.
     entries : dict, default {'freq': [0.2, 0.5, 1], 'AFR': [0, 1]}
         Entries for the missing quantities in the performance map.
         Particular entries can be set using
         ``self.entries[quantity] = list_of_entries``
     corrections : dict, default None
-        Two-level nested dictionary  with single variable corrections
+        Two-levels nested dictionary  with single variable correction functions
         used to extend the performance map.  A different correction
         should be provided for each input and output quantity.  The keys
         of the first level are the input quantities and those of the
@@ -52,7 +52,7 @@ class PermapFiller:
         each input quantity not present in the initial performance map,
         this attributes gives the ratio between the value associated
         with the inital data and the rated value.  If none have been
-        set, the default dict {'freq': 1, 'AFR': 1} is assigned when the
+        set, the default dict ``{'freq': 1, 'AFR': 1}`` is assigned when the
         operating mode is set.
     ranges : dict
         Operating ranges for the input quantities of the performance map.
@@ -69,7 +69,7 @@ class PermapFiller:
     set (missing) normalized frequency entries:
 
     >>> hm = fmo.build_heating_permap()
-    >>> hm.pmf.entries['freq'] = np.arange(1, 21) / 10
+    >>> hm.pmf.entries['freq'] = np.arange(0.1, 2.1, 0.1)
 
     There are no corrections or manufacturer values factors by default
     until the operating mode is set:
@@ -310,13 +310,13 @@ class PermapFiller:
         pm : DataFrame
             A copy of the original performance map with performance
             values normalized according to the rated values, and the
-            `normalized` attribute set to ``True``.
+            ``normalized`` attribute set to ``True``.
 
         Raises
         ------
         RuntimeError
             If the data is already normalized
-            (`self.normalized` is ``True``).
+            (``self.normalized`` is ``True``).
         ValueError
             If there is an inconsistency between the PermapFiller column
             index and the rated values dataframe column index.
@@ -330,7 +330,7 @@ class PermapFiller:
         Examples
         --------
         >>> cm = fmo.build_cooling_permap()
-        >>> cm.pmf.entries['freq'] =  np.arange(1, 15) / 10
+        >>> cm.pmf.entries['freq'] =  np.arange(0.1, 1.5, 0.1)
         >>> cm.pmf.mode = 'cooling'
         >>> cm
         cooling          capacity  power
@@ -367,6 +367,7 @@ class PermapFiller:
         [72 rows x 2 columns]
 
         Trying to normalize again will fail:
+
         >>> cm_norm.pmf.normalize(rated_values)
         Traceback (most recent call last):
         ...
@@ -439,10 +440,10 @@ class PermapFiller:
         --------
         PermapFiller.corrections : get all corrections as a dictionary.
         PermapFiller.set_correction :
-            Equivalent of `PermapFiller.get_correction` for setting a
+            Equivalent of ``PermapFiller.get_correction`` for setting a
             single correction.
         PermapFiller.set_corrections :
-            Equivalent of `PermapFiller.get_correction` for setting
+            Equivalent of ``PermapFiller.get_correction`` for setting
             mutliple corrections for a specific input quantity.
 
         """
@@ -492,10 +493,10 @@ class PermapFiller:
         --------
         PermapFiller.corrections : get all corrections as a dictionary.
         PermapFiller.get_correction :
-            Equivalent of `PermapFiller.set_correction` for getting
+            Equivalent of ``PermapFiller.set_correction`` for getting
             specific corrections.
         PermapFiller.set_corrections :
-            Equivalent of `PermapFiller.set_correction` for setting
+            Equivalent of ``PermapFiller.set_correction`` for setting
             multiple corrections for a specific input quantity.
 
         """
@@ -534,10 +535,10 @@ class PermapFiller:
         --------
         PermapFiller.corrections : get all corrections as a dictionary.
         PermapFiller.get_correction :
-            Equivalent of `PermapFiller.set_corrections` for getting
+            Equivalent of ``PermapFiller.set_corrections`` for getting
             specific corrections.
         PermapFiller.set_correction :
-            Equivalent of `PermapFiller.set_corrections` for setting a
+            Equivalent of ``PermapFiller.set_corrections`` for setting a
             single correction.
 
         """
@@ -625,7 +626,7 @@ class PermapFiller:
         See Also
         --------
         PermapFiller._add_corrections :
-            Equivalent of `PermapFiller._add_correction` for adding
+            Equivalent of ``PermapFiller._add_correction`` for adding
             regressions for all input quantities.
         PermapFiller.set_correction : set a single correction.
         PermapFiller.set_corrections :
@@ -719,7 +720,7 @@ class PermapFiller:
             be applied.
         manval : int or float, default 1
             manufacturer values correction factor
-            (see `PermapFiller.manval_factors` in the class documentation).
+            (see ``PermapFiller.manval_factors`` in the class documentation).
 
         Returns
         -------
@@ -792,7 +793,7 @@ class PermapFiller:
         norm : DataFrame, optional
             Pandas dataframe with the rated values used for normalizing the
             data (see `values` argument in the documentation for
-            `PermapFiller.normalize` method).  If not provided, the data is
+            ``PermapFiller.normalize`` method).  If not provided, the data is
             not normalized.
 
         Returns
@@ -804,7 +805,7 @@ class PermapFiller:
         ------
         RuntimeError
             If there is an incoherence between the column index and the
-            `corrections` keys (the ouput quantities to be corrected).
+            ``corrections`` keys (the ouput quantities to be corrected).
         RuntimeError
             If the data is already normalized
             (`self.normalized` is ``True``).
@@ -821,7 +822,7 @@ class PermapFiller:
 
         >>> cm = fmo.build_cooling_permap()
         >>> cm.pmf.mode = 'cooling'
-        >>> cm.pmf.entries['freq'] =  np.arange(1, 15) / 10
+        >>> cm.pmf.entries['freq'] =  np.arange(0.1, 1.5, 0.1)
         >>> cm
         cooling          capacity  power
         Tdbr Twbr Tdbo

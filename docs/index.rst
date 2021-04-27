@@ -18,6 +18,8 @@ and more in-depth features.
    :maxdepth: 2
    :caption: Contents:
 
+   Fillomino API reference <api>
+
 
 .. _tuto:
 
@@ -199,7 +201,7 @@ Normalization can only be performed once;
 trying to normalize a second time will fail:
 
 >>> hpm_norm.pmf.normalize(values=rated_values)
-RuntimeError                       Traceback (most recent call last)
+Traceback (most recent call last)
 ...
 RuntimeError: values are already normalized.
 

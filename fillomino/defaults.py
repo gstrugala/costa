@@ -1,6 +1,6 @@
-"""defaults module.
-Default correction functions used to obtain missing values in a performance
-map.
+"""
+The ``defaults`` module provide default correction functions used to obtain
+missing values in a performance map.
 """
 
 import numpy as np
@@ -11,8 +11,8 @@ def weibull(x, amp, scale, shape):
     return amp * (1 - np.exp(-(x/scale) ** shape))
 
 
-def weibull_cpmt(x, amp, scale, shape, lift, shift):
-    """Lifted and shifted version of the complement Weibull function."""
+def compexp(x, amp, scale, shape, lift, shift):
+    """Lifted and shifted version of the compressed exponential function."""
     shifted = np.maximum(x - shift, 0)  # avoids divergence at low values
     return (amp - lift) * np.exp(-(shifted / scale) ** shape) + lift
 
@@ -83,7 +83,7 @@ def default_correction(mode, pminput, pmoutput=None):
             ),
             ('heating', 'power'): (2.5121, 1.30389, 2.5551829)
         }[(mode, pmoutput)]
-        function = weibull if pmoutput == 'power' else weibull_cpmt
+        function = weibull if pmoutput == 'power' else compexp
         return lambda x: function(x, *parameters)
     elif pminput == 'AFR':
         # Placeholder (no correction for now)
