@@ -4,7 +4,7 @@ import pandas as pd
 
 
 def build_cooling_permap(datafile=None):
-    """Read cooling performance map into an extendable dataframe."""
+    """Read cooling performance map into an extendable DataFrame."""
     if datafile is None:
         parent = Path(__file__).parent
         datafile = parent/"resources/manufacturer-data-cooling.txt"
@@ -31,7 +31,7 @@ def build_cooling_permap(datafile=None):
 
 
 def build_heating_permap(datafile=None):
-    """Read heating performance map into an extendable dataframe."""
+    """Read heating performance map into an extendable DataFrame."""
     if datafile is None:
         parent = Path(__file__).parent
         datafile = parent/"resources/manufacturer-data-heating.txt"

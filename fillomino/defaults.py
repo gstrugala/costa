@@ -29,10 +29,10 @@ def default_correction(mode, pminput, pmoutput=None):
         The operating mode corresponding to the desired correction.
     pminput : {'freq', 'AFR', 'Twbr', 'SHR'}
         The quantity which the desired correction should depend on.  The
-        SHR is only available in cooling mode.
+        `'SHR'` option is only available in cooling mode.
     pmoutput : {'COP', 'power'}, optional
         The quantity to which the desired correction should apply.  Should
-        not be specified when `pminput` is 'SHR'.
+        not be specified when `pminput` is `'SHR'`.
 
     Returns
     -------

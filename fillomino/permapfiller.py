@@ -1,5 +1,6 @@
-"""permapfiller module.
-An extension of pandas DataFrames to fill incomplete performance maps.
+"""
+The ``permapfiller`` module provides the PermapFiller class,
+an extension of :class:`pandas.DataFrame` to fill incomplete performance maps.
 """
 
 import warnings
@@ -17,22 +18,23 @@ class PermapFiller:
     """
     Complete missing values in a performance map.
 
-    PermapFiller objects are accessible through the DataFrame accessor
-    ``pmf``.  They provide a handful of methods to help extend an
-    initially incomplete performance map, given as a DataFrame.
+    PermapFiller objects are accessible through the `DataFrame accessor`_
+    ``pmf``.  They provide a handful of methods to help extend an initially
+    incomplete performance map, given as a :class:`~pandas.DataFrame`.
 
     Parameters
     ----------
-    pandas_obj : DataFrame
-        The pandas dataframe representing the performance map.
+    pandas_obj : :class:`pandas.DataFrame`
+        The DataFrame representing the performance map.
 
     Attributes
     ----------
     mode : {'heating', 'cooling'}, default None
         The operating mode associated with the performance data.
     normalized : bool, default False.
-        ``True`` if the performance data is normalized.  It is
-        automatically set to ``True`` after using the ``normalize`` method.
+        ``True`` if the performance data is normalized.
+        It is automatically set to ``True`` after using the
+        :meth:`normalize` method.
     entries : dict, default {'freq': [0.2, 0.5, 1], 'AFR': [0, 1]}
         Entries for the missing quantities in the performance map.
         Particular entries can be set using
@@ -68,7 +70,7 @@ class PermapFiller:
     Build an incomplete performance map and
     set (missing) normalized frequency entries:
 
-    >>> hm = fmo.build_heating_permap()
+    >>> hm = fillomino.build_heating_permap()
     >>> hm.pmf.entries['freq'] = np.arange(0.1, 2.1, 0.1)
 
     There are no corrections or manufacturer values factors by default
@@ -92,9 +94,10 @@ class PermapFiller:
 
     >>> hm.pmf.manval_factors['freq'] = 120 / 60
 
-    This value will affect the output of the method
-    ``PermapFiller.correct``, and thus also ``PermapFiller.extend`` and
-    ``PermapFiller.fill``.
+    This value will affect the output of the method :meth:`correct`,
+    and thus also :meth:`extend` and :meth:`fill`.
+
+    .. _DataFrame accessor: https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.api.extensions.register_dataframe_accessor.html
 
     """
 
@@ -124,12 +127,12 @@ class PermapFiller:
         self._restricted_levels = {key: None for key in self.ranges}
 
     def update_data(self, df, update_ranges=True, keep_restrictions=False):
-        """Return a new performance map with new data.
+        """Return a new performance map with updated data.
 
         Parameters
         ----------
-        df : DataFrame
-            The new data.
+        df : :class:`~pandas.DataFrame`
+            The updated data.
         update_ranges : bool, default True
             If ``False``, the original operating ranges will be kept.
         keep_restrictions : bool, default False
@@ -138,9 +141,9 @@ class PermapFiller:
 
         Returns
         -------
-        DataFrame
+        :class:`~pandas.DataFrame`
             Data in df with attributes ranges and restricted_levels
-            adjusted accordingly from the index of df.
+            adjusted accordingly from the index of `df`.
 
         """
         pm = df.pmf.copyattr(self)
@@ -209,7 +212,7 @@ class PermapFiller:
 
     @property
     def mode(self):
-        """The operating mode corresponding to the performance data."""
+        # """The operating mode corresponding to the performance data."""
         return self._mode
 
     @mode.setter
@@ -298,8 +301,8 @@ class PermapFiller:
 
         Parameters
         ----------
-        values : DataFrame, optional
-            A pandas dataframe with one row containing the rated values
+        values : :class:`~pandas.DataFrame`, optional
+            A DataFrame with one row containing the rated values
             of the performance map output quantities in its columns.
             The performance data will be normalized by those values.  By
             default, `values` is ``None`` and in that case the original
@@ -307,29 +310,29 @@ class PermapFiller:
 
         Returns
         -------
-        pm : DataFrame
+        pm : :class:`~pandas.DataFrame`
             A copy of the original performance map with performance
             values normalized according to the rated values, and the
-            ``normalized`` attribute set to ``True``.
+            :attr:`normalized` attribute set to ``True``.
 
         Raises
         ------
         RuntimeError
             If the data is already normalized
-            (``self.normalized`` is ``True``).
+            (:attr:`normalized` is ``True``).
         ValueError
             If there is an inconsistency between the PermapFiller column
-            index and the rated values dataframe column index.
+            index and the rated values DataFrame column index.
 
         See also
         --------
-        PermapFiller.fill :
+        fill :
             Fill the missing values and optionally normalize the data
             in one go.
 
         Examples
         --------
-        >>> cm = fmo.build_cooling_permap()
+        >>> cm = fillomino.build_cooling_permap()
         >>> cm.pmf.entries['freq'] =  np.arange(0.1, 1.5, 0.1)
         >>> cm.pmf.mode = 'cooling'
         >>> cm
@@ -434,17 +437,17 @@ class PermapFiller:
         Raises
         ------
         RuntimeError
-            If the operating mode is not yet set.
+            If the operating :attr:`mode` is not yet set.
 
         See Also
         --------
-        PermapFiller.corrections : get all corrections as a dictionary.
-        PermapFiller.set_correction :
-            Equivalent of ``PermapFiller.get_correction`` for setting a
+        corrections : get all corrections as a dictionary.
+        set_correction :
+            Equivalent of :meth:`get_correction` for setting a
             single correction.
-        PermapFiller.set_corrections :
-            Equivalent of ``PermapFiller.get_correction`` for setting
-            mutliple corrections for a specific input quantity.
+        set_corrections :
+            Equivalent of :meth:`get_correction` for setting
+            multiple corrections for a specific input quantity.
 
         """
         self._check_mode("getting correction")
@@ -480,23 +483,23 @@ class PermapFiller:
 
         Returns
         -------
-        DataFrame or None
-            If `inplace` is ``False``, a copy of the dataframe with the new
+        :class:`~pandas.DataFrame` or None
+            If `inplace` is ``False``, a copy of the DataFrame with the new
             correction is returned.
 
         Raises
         ------
         RuntimeError
-            If the operating mode is not yet set.
+            If the operating :attr:`mode` is not yet set.
 
         See Also
         --------
-        PermapFiller.corrections : get all corrections as a dictionary.
-        PermapFiller.get_correction :
-            Equivalent of ``PermapFiller.set_correction`` for getting
+        corrections : get all corrections as a dictionary.
+        get_correction :
+            Equivalent of :meth:`set_correction` for getting
             specific corrections.
-        PermapFiller.set_corrections :
-            Equivalent of ``PermapFiller.set_correction`` for setting
+        set_corrections :
+            Equivalent of :meth:`set_correction` for setting
             multiple corrections for a specific input quantity.
 
         """
@@ -523,22 +526,22 @@ class PermapFiller:
 
         Returns
         -------
-        DataFrame
-            A copy of the dataframe with the new corrections is returned.
+        :class:`~pandas.DataFrame`
+            A copy of the DataFrame with the new corrections is returned.
 
         Raises
         ------
         RuntimeError
-            If the operating mode is not yet set.
+            If the operating :attr:`mode` is not yet set.
 
         See Also
         --------
-        PermapFiller.corrections : get all corrections as a dictionary.
-        PermapFiller.get_correction :
-            Equivalent of ``PermapFiller.set_corrections`` for getting
+        corrections : get all corrections as a dictionary.
+        get_correction :
+            Equivalent of :meth:`set_corrections` for getting
             specific corrections.
-        PermapFiller.set_correction :
-            Equivalent of ``PermapFiller.set_corrections`` for setting a
+        set_correction :
+            Equivalent of :meth:`set_corrections` for setting a
             single correction.
 
         """
@@ -615,21 +618,21 @@ class PermapFiller:
 
         Returns
         -------
-        DataFrame
-            A copy of the original dataframe with additional regression(s).
+        :class:`~pandas.DataFrame`
+            A copy of the original DataFrame with additional regression(s).
 
         Raises
         ------
         RuntimeError
-            If the operating mode is not yet set.
+            If the operating :attr:`mode` is not yet set.
 
         See Also
         --------
-        PermapFiller._add_corrections :
-            Equivalent of ``PermapFiller._add_correction`` for adding
+        _add_corrections :
+            Equivalent of :meth:`_add_correction` for adding
             regressions for all input quantities.
-        PermapFiller.set_correction : set a single correction.
-        PermapFiller.set_corrections :
+        set_correction : set a single correction.
+        set_corrections :
             Set multiple corrections for a specific input quantity.
 
         """
@@ -658,7 +661,7 @@ class PermapFiller:
             return self.set_correction(quantity, missing_key, new_correction)
 
     def _add_corrections(self, inplace=False):
-        """See `PermapFiller._add_correction`."""
+        """See :meth:`_add_correction`."""
         new = None if inplace else self.copy()
         for quantity in set(self.corrections) - {'SHR'}:
             if inplace:
@@ -674,12 +677,12 @@ class PermapFiller:
 
         Parameters
         ----------
-        df : DataFrame
+        df : :class:`~pandas.DataFrame`
 
         Returns
         -------
-        DataFrame
-            A copy of the original dataframe with additional column(s).
+        :class:`~pandas.DataFrame`
+            A copy of the original DataFrame with additional column(s).
 
         """
         _df = df.copy()
@@ -701,7 +704,7 @@ class PermapFiller:
         return _df
 
     def _add_missing_column(self):
-        """See classmethod `PermapFiller._add_missing_df_column`."""
+        """See classmethod :meth:`_add_missing_df_column`."""
         return self.update_data(
             self._add_missing_df_column(self.data),
             keep_restrictions=True
@@ -720,23 +723,24 @@ class PermapFiller:
             be applied.
         manval : int or float, default 1
             manufacturer values correction factor
-            (see ``PermapFiller.manval_factors`` in the class documentation).
+            (see attribute :attr:`manval_factors`).
 
         Returns
         -------
-        DataFrame
-            A corrected copy of the original dataframe.
+        :class:`~pandas.DataFrame`
+            A corrected copy of the original DataFrame.
 
         Raises
         ------
         RuntimeError
             If there is an incoherence between the column index and the
-            `corrections` keys (the ouput quantities to be corrected).
+            :attr:`corrections` keys
+            (the ouput quantities to be corrected).
 
         See Also
         --------
-        PermapFiller.extend : extend performance map using corrections.
-        PermapFiller.fill : fill missing values in performance map.
+        extend : extend performance map using corrections.
+        fill : fill missing values in performance map.
 
         """
         self._check_columns(corrections.keys())
@@ -761,19 +765,19 @@ class PermapFiller:
 
         Returns
         -------
-        DataFrame
-            An extended copy of the original dataframe.
+        :class:`~pandas.DataFrame`
+            An extended copy of the original DataFrame.
 
         Raises
         ------
         RuntimeError
             If there is an incoherence between the column index and the
-            `corrections` keys (the ouput quantities to be corrected).
+            :attr:`corrections` keys (the ouput quantities to be corrected).
 
         See Also
         --------
-        PermapFiller.correct : apply corrections to ouput quantities.
-        PermapFiller.fill : fill missing values in performance map.
+        correct : apply corrections to ouput quantities.
+        fill : fill missing values in performance map.
 
         """
         self._check_columns(corrections.keys())
@@ -790,37 +794,39 @@ class PermapFiller:
 
         Parameters
         ----------
-        norm : DataFrame, optional
-            Pandas dataframe with the rated values used for normalizing the
-            data (see `values` argument in the documentation for
-            ``PermapFiller.normalize`` method).  If not provided, the data is
-            not normalized.
+        norm : :class:`~pandas.DataFrame`, optional
+            DataFrame with the rated values used for normalizing the
+            data (see `values` argument in the :meth:`normalize` method
+            documentation). If not provided, the data is not normalized.
 
         Returns
         -------
-        DataFrame
-            An extended copy of the original dataframe.
+        :class:`~pandas.DataFrame`
+            An extended copy of the original DataFrame.
 
         Raises
         ------
         RuntimeError
             If there is an incoherence between the column index and the
-            ``corrections`` keys (the ouput quantities to be corrected).
+            :attr:`corrections` keys
+            (the ouput quantities to be corrected).
         RuntimeError
             If the data is already normalized
-            (`self.normalized` is ``True``).
+            (:attr:`normalized` is ``True``).
+        RuntimeError
+            If the operating :attr:`mode` is not yet set.
 
         See Also
         --------
-        PermapFiller.correct : apply corrections to ouput quantities.
-        PermapFiller.extend : extend performance map using corrections.
-        PermapFiller.write : write performance map to file.
+        correct : apply corrections to ouput quantities.
+        extend : extend performance map using corrections.
+        write : write performance map to file.
 
         Examples
         --------
         Build cooling performance map and set the missing frequency entries
 
-        >>> cm = fmo.build_cooling_permap()
+        >>> cm = fillomino.build_cooling_permap()
         >>> cm.pmf.mode = 'cooling'
         >>> cm.pmf.entries['freq'] =  np.arange(0.1, 1.5, 0.1)
         >>> cm
@@ -898,8 +904,8 @@ class PermapFiller:
                 pm_norm.capacity.iloc[valid_states]
                 - pm_norm.sensible_capacity.iloc[valid_states]
             )
-            # Put -1 flag at invalid states
-            pm_norm.iloc[invalid_states, :] = -9999
+            # Put -999 flag at invalid states
+            pm_norm.iloc[invalid_states, :] = -999
             new_level_order = ['Tdbr', 'Twbr', 'Tdbo', 'AFR', 'freq']
             new_index_order = ['power', 'sensible_capacity', 'latent_capacity']
             permap = (
@@ -914,15 +920,16 @@ class PermapFiller:
 
     def write(self, filename, majororder='row'):
         """Write performance map to a file using a format compatible with
-        the TRNSYS Type 3254.
+        the TRNSYS `Type 3254 <https://github.com/polymtl-bee/vcaahp-model>`_.
 
         Parameters
         ----------
         filename : str
             The name of the file to be written to.
         majororder : {'row', 'col'}
-            Choose to write the performance map either in row- or
-            column-major order.
+            Choose to write the performance map either in
+            `row- or column-major order
+            <https://en.wikipedia.org/wiki/Row-_and_column-major_order>`_.
 
         """
         if not isinstance(majororder, str):

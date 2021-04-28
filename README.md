@@ -22,7 +22,7 @@ see [basic usage](#basic-usage).
 - Use basic functionalities with a user interface
 
 ## Installation
-Install Fillomino with `pip` by running
+Install Fillomino with [`pip`](https://pip.pypa.io/en/stable/) by running
 
     $ pip install fillomino
 

@@ -58,7 +58,7 @@ This tutorial shows how to build such a table step by step.
 | **15  °C**      | 7.79 | 1.64 | 7.60 | 1.68 | 7.42 | 1.71 | 7.05 | 1.78 |
 +-----------------+------+------+------+------+------+------+------+------+
 
-The first step is to load the table into a `pandas dataframe`_.
+The first step is to load the table into a pandas :class:`~pandas.DataFrame`.
 This can be done for example by using the method ``build_heating_permap``.
 Copy the table as formatted below in a file named ``heating-performance-map.dat``.
 ::
@@ -168,8 +168,8 @@ Tdbr Tdbo  AFR     freq
 Before ending with writing the table to a file,
 here's a tip for normalizing the performance map values.
 Tables are usually provided in a non-normalized way, but the Type |_| 3254
-works with normalized data.
-The table ``hpm_full`` can be normalized by providing rated values in a dataframe:
+works with normalized data. The table ``hpm_full`` can be normalized
+by providing rated values in a DataFrame:
 
 >>> import pandas as pd
 >>> rated_values = pd.DataFrame({'capacity': [4.69], 'power': [1.01]})
@@ -225,4 +225,3 @@ through `pip <https://pip.pypa.io/en/stable/>`_ by running::
     $ pip install fillomino
 
 .. _Type 3254: https://github.com/polymtl-bee/vcaahp-model
-.. _pandas dataframe: https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.html

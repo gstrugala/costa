@@ -1,22 +1,20 @@
+.. currentmodule:: fillomino.permapfiller
 .. _api:
 
 Fillomino reference
 ===================
 
-.. automodule:: fillomino
-   :members:
-
 
 The ``PermapFiller`` class
 --------------------------
-``PermapFiller`` extends the `pandas.DataFrame`_ class
-by registering a dataframe accessor named ``pmf``.
-Once Fillomino is imported, all ``PermapFiller`` methods and attributes
-can be invoked by dataframes in this way: ``df.pmf.normalized``.
+:class:`PermapFiller` extends the class :class:`pandas.DataFrame`
+by `registering a DataFrame accessor`_ named ``pmf``.
+Once Fillomino is imported, all PermapFiller methods and attributes
+can be invoked by DataFrames in this way: ``df.pmf.normalized``.
 
-
-.. autoclass:: fillomino.permapfiller.PermapFiller
+.. autoclass:: PermapFiller
    :members:
+
 
 The ``defaults`` module
 -----------------------
@@ -24,5 +22,4 @@ The ``defaults`` module
 .. automodule:: fillomino.defaults
    :members:
 
-
-.. _pandas.DataFrame: https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.html
+.. _registering a DataFrame accessor: https://pandas.pydata.org/pandas-docs/stable/development/extending.html#registering-custom-accessors
