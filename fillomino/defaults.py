@@ -1,18 +1,26 @@
 """
-The ``defaults`` module provide default correction functions used to obtain
-missing values in a performance map.
+The :mod:`~fillomino.defaults` module provide default correction functions
+used to obtain missing values in a performance map.
 """
 
 import numpy as np
 
 
 def weibull(x, amp, scale, shape):
-    """Scaled Weibull function."""
+    """Scaled `Weibull cumulative distribution function`_.
+
+    .. _Weibull cumulative distribution function:
+       https://en.wikipedia.org/wiki/Weibull_distribution#Cumulative_distribution_function
+    """
     return amp * (1 - np.exp(-(x/scale) ** shape))
 
 
 def compexp(x, amp, scale, shape, lift, shift):
-    """Lifted and shifted version of the compressed exponential function."""
+    """Lifted and shifted version of the `compressed exponential function`_.
+
+    .. _compressed exponential function:
+       https://en.wikipedia.org/wiki/Stretched_exponential_function
+    """
     shifted = np.maximum(x - shift, 0)  # avoids divergence at low values
     return (amp - lift) * np.exp(-(shifted / scale) ** shape) + lift
 

@@ -47,14 +47,14 @@ class PermapFiller:
         second level are the output quantities.  Dictionary values
         (the corrections) must be provided as functions with one
         argument. See examples for more details.
-    manval_factors : dict, default None
+    initial_norm_values : :class:`dict`, default :obj:`None`
         Manufacturer tables are not always provided in rated conditions;
         for example, some performance tables are provided at maximum
         compressor frequency and not at the rated frequency value.  For
-        each input quantity not present in the initial performance map,
-        this attributes gives the ratio between the value associated
-        with the inital data and the rated value.  If none have been
-        set, the default dict ``{'freq': 1, 'AFR': 1}`` is assigned when the
+        each normalized input quantity that is not in the initial performance
+        table, this attributes specifies the value corresponding to the initial
+        data, normalized by the actual rated value. If none have been set,
+        the default dict ``{'freq': 1, 'AFR': 1}`` is assigned when the
         operating mode is set.
     ranges : dict
         Operating ranges for the input quantities of the performance map.
@@ -76,10 +76,10 @@ class PermapFiller:
     There are no corrections or manufacturer values factors by default
     until the operating mode is set:
 
-    >>> hm.pmf.corrections is None and hm.pmf.manval_factors is None
+    >>> hm.pmf.corrections is None and hm.pmf.initial_norm_values is None
     True
     >>> hm.pmf.mode = 'heating'
-    >>> hm.pmf.manval_factors
+    >>> hm.pmf.initial_norm_values
     {'freq': 1, 'AFR': 1}
     >>> corr = hm.pmf.corrections['freq']['power']
     >>> corr(0.5)
@@ -92,7 +92,7 @@ class PermapFiller:
     frequency (120 Hz) and rated frequency is 60 Hz, the frequency
     correction ratio should be
 
-    >>> hm.pmf.manval_factors['freq'] = 120 / 60
+    >>> hm.pmf.initial_norm_values['freq'] = 120 / 60
 
     This value will affect the output of the method :meth:`correct`,
     and thus also :meth:`extend` and :meth:`fill`.
@@ -106,7 +106,7 @@ class PermapFiller:
         '_normalized',
         '_entries',
         '_corrections',
-        '_manval_factors',
+        '_initial_norm_values',
         '_ranges',
         '_restricted_levels'
     )
@@ -118,7 +118,7 @@ class PermapFiller:
         self._normalized = False
         self._entries = {'freq': [0.2, 0.5, 1], 'AFR': [1e-5, 1]}
         self._corrections = None
-        self._manval_factors = None
+        self._initial_norm_values = None
         self._ranges = ADict(
             self.index_ranges(pandas_obj.index),
             pmf=self,
@@ -251,10 +251,10 @@ class PermapFiller:
                 "Corrections are already set and were not overwritten, though "
                 "they may need to be changed after setting a new mode."
             )
-        if self.manval_factors is None:
-            self.manval_factors = {'freq': 1, 'AFR': 1}
+        if self.initial_norm_values is None:
+            self.initial_norm_values = {'freq': 1, 'AFR': 1}
             if self.mode == 'cooling':
-                self.manval_factors['Twbr'] = 1
+                self.initial_norm_values['Twbr'] = 1
 
     @property
     def normalized(self):
@@ -477,13 +477,13 @@ class PermapFiller:
             apply.
         new_correction : callable
             The new correction to be set.
-        inplace : bool, default ``False``
-             If ``True``, performs operation inplace and returns ``None``.
+        inplace : :class:`bool`, default ``False``
+             If ``True``, performs operation in-place and returns ``None``.
 
 
         Returns
         -------
-        :class:`~pandas.DataFrame` or None
+        :class:`~pandas.DataFrame` or :obj:`None`
             If `inplace` is ``False``, a copy of the DataFrame with the new
             correction is returned.
 
@@ -553,16 +553,16 @@ class PermapFiller:
         return new.pmf._add_correction(input_quantity)
 
     @property
-    def manval_factors(self):
-        return self._manval_factors
+    def initial_norm_values(self):
+        return self._initial_norm_values
 
-    @manval_factors.setter
-    def manval_factors(self, new_values):
-        self._manval_factors = new_values
+    @initial_norm_values.setter
+    def initial_norm_values(self, new_values):
+        self._initial_norm_values = new_values
 
-    @manval_factors.deleter
-    def manval_factors(self):
-        del self._manval_factors
+    @initial_norm_values.deleter
+    def initial_norm_values(self):
+        del self._initial_norm_values
 
     def _check_mode(self, before="doing what you did"):
         """Ensure that the mode is set."""
@@ -614,7 +614,7 @@ class PermapFiller:
             The input quantity whose values are used to compute the
             corrections.
         inplace : bool, default ``False``
-            If ``True``, performs operation inplace and returns ``None``.
+            If ``True``, performs operation in-place and returns ``None``.
 
         Returns
         -------
@@ -710,7 +710,7 @@ class PermapFiller:
             keep_restrictions=True
         )
 
-    def correct(self, corrections, entry, manval=1):
+    def correct(self, corrections, entry, initial=1):
         """Apply corrections to ouput quantities.
 
         Parameters
@@ -721,9 +721,9 @@ class PermapFiller:
         entry : int or float
             Value of the input quantity for which corrections are to
             be applied.
-        manval : int or float, default 1
-            manufacturer values correction factor
-            (see attribute :attr:`manval_factors`).
+        initial : int or float, default 1
+            Initial normalized value
+            (see attribute :attr:`initial_norm_values`).
 
         Returns
         -------
@@ -746,7 +746,7 @@ class PermapFiller:
         self._check_columns(corrections.keys())
         new = self.copy()
         for quantity, correction in corrections.items():
-            new[quantity] *= correction(entry) / correction(manval)
+            new[quantity] *= correction(entry) / correction(initial)
         return new
 
     def extend(self, corrections, entries, name='new dim'):
@@ -781,16 +781,17 @@ class PermapFiller:
 
         """
         self._check_columns(corrections.keys())
-        manval = self.manval_factors[name]
+        initial = self.initial_norm_values[name]
         new = pd.concat(
-            [self.correct(corrections, entry, manval) for entry in entries],
+            [self.correct(corrections, entry, initial) for entry in entries],
             keys=entries,
             names=[name]
         )
         return self.update_data(new, keep_restrictions=True)
 
     def fill(self, norm=None):
-        """Extend the performance map along a new dimension.
+        """Extend the performance to include frequency, air flow rate and
+        (in cooling mode) wet-bulb temperature entries.
 
         Parameters
         ----------

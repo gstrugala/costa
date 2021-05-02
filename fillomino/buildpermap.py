@@ -37,7 +37,7 @@ def build_heating_permap(datafile=None):
         datafile = parent/"resources/manufacturer-data-heating.txt"
     data = pd.read_csv(datafile, sep=' ', skiprows=1).to_numpy()
     Tdbo, raw_data = data[:, 0], data[:, 2:]
-    Tdbr = pd.read_csv(datafile, sep=' ', nrows=1, header=None).iloc[0, 1:-1]
+    Tdbr = pd.read_csv(datafile, sep=' ', nrows=1, header=None).iloc[0, 1:]
     # Capacity must come before input power as raw_data is formatted this way
     col_headers = [
         (T, P) for T in Tdbr.to_numpy() for P in ('capacity', 'power')

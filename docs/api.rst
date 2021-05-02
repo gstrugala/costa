@@ -22,4 +22,5 @@ The ``defaults`` module
 .. automodule:: fillomino.defaults
    :members:
 
-.. _registering a DataFrame accessor: https://pandas.pydata.org/pandas-docs/stable/development/extending.html#registering-custom-accessors
+.. _registering a DataFrame accessor:
+   https://pandas.pydata.org/pandas-docs/stable/development/extending.html#registering-custom-accessors

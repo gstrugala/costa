@@ -1,4 +1,4 @@
-# Fillomino — fill performance maps
+# Fillomino: make the most of your performance data
 *Fillomino* is a Python package whose purpose is to
 fill incomplete performance maps using correction curves.
 **It is meant to create variable capacity air-to-air heat pumps

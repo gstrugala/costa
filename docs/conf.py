@@ -10,40 +10,40 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-import os
-import sys
-sys.path.insert(0, os.path.abspath('..'))
+# import os
+# import sys
+# sys.path.insert(0, os.path.abspath(".."))
 
 
 # -- Project information -----------------------------------------------------
 
-project = 'Fillomino'
-copyright = '2021, Gregor Strugala'
-author = 'Gregor Strugala'
+project = "Fillomino"
+copyright = "2021, Gregor Strugala"
+author = "Gregor Strugala"
 
 # The full version, including alpha/beta/rc tags
-release = '0.0.1'
+release = "0.0.1"
 
 
 # -- General configuration ---------------------------------------------------
 
-# Add any Sphinx extension module names here, as strings. They can be
-# extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
-# ones.
 extensions = [
-    'sphinx.ext.autodoc',
-    'sphinx.ext.napoleon',
-    'sphinx.ext.doctest',
-    'sphinx.ext.intersphinx'
+    "sphinx.ext.autodoc",
+    "sphinx.ext.napoleon",
+    "sphinx.ext.doctest",
+    "sphinx.ext.intersphinx",
+    "IPython.sphinxext.ipython_directive",
+    "IPython.sphinxext.ipython_console_highlighting",
+    "matplotlib.sphinxext.plot_directive"
 ]
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+templates_path = ["_templates"]
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 # Omit parentheses in functions/methods cross-references
 add_function_parentheses = False
@@ -51,17 +51,29 @@ add_function_parentheses = False
 
 # -- Options for HTML output -------------------------------------------------
 
-html_theme = 'alabaster'
-# html_theme = 'pydata_sphinx_theme'
+html_theme = "alabaster"
+html_theme_options = {
+    'logo': "logo.pdf",
+    'show_relbar_bottom': True,
+    'github_button': True,
+    'github_user': "gstrugala",
+    'github_repo': "fillomino",
+    'description': "Fill missing values in a performance table"
+}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
-# html_css_files = ['css/custom.css']
-
+html_static_path = ["_static"]
 
 # -- Intersphinx configuration -----------------------------------------------
 intersphinx_mapping = {
-    'pandas': ('https://pandas.pydata.org/pandas-docs/stable', None)
+    'python': ("https://docs.python.org/3", None),
+    'numpy': ("https://numpy.org/doc/stable/", None),
+    'pandas': ("https://pandas.pydata.org/pandas-docs/stable", None)
 }
+
+
+# -- Matplotlib plot directive configuration ---------------------------------
+plot_html_show_source_link = False
+plot_html_show_formats = False
