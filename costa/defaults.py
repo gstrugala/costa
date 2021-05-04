@@ -1,5 +1,5 @@
 """
-The :mod:`~fillomino.defaults` module provide default correction functions
+The :mod:`~costa.defaults` module provide default correction functions
 used to obtain missing values in a performance map.
 """
 

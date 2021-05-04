@@ -2,7 +2,7 @@ import pytest
 from pandas import read_pickle
 from pandas.testing import assert_frame_equal
 
-from fillomino.buildpermap import build_cooling_permap, build_heating_permap
+from costa.buildpermap import build_cooling_permap, build_heating_permap
 
 
 @pytest.fixture

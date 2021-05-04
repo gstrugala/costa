@@ -6,31 +6,30 @@ comparison data in tests).
 
 """
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
-import fillomino as fmo
+import costa
 
 
 # Cooling
-cm = fmo.build_cooling_permap()
-cm.pmf.entries['freq'] = np.arange(1, 15)/10
-cm.pmf.mode = 'cooling'
+cm = costa.build_cooling_permap()
+cm.pm.entries['freq'] = np.arange(0.1, 1.5, 0.1)
+cm.pm.mode = 'cooling'
 rated = pd.DataFrame({'capacity': [3.52], 'power': [0.79]})
-cmf = cm.pmf.fill(norm=rated)
+cmf = cm.pm.fill(norm=rated)
 
 # Heating
-hm = fmo.build_heating_permap()
-hm.pmf.entries['freq'] = np.arange(1, 21)/10
-hm.pmf.mode = 'heating'
-hm.pmf.manval_factors['freq'] = 119 / 60
+hm = costa.build_heating_permap()
+hm.pm.entries['freq'] = np.arange(0.1, 2.1, 0.1)
+hm.pm.mode = 'heating'
+hm.pm.initial_norm_values['freq'] = 119 / 60
 rated = pd.DataFrame({'capacity': [4.69], 'power': [1.01]})
-hmf = hm.pmf.fill(norm=rated)
+hmf = hm.pm.fill(norm=rated)
 
 # Write to files (uncomment line if you are sure to want to overwrite).
-# cmf.to_pickle("tests/data/filled-table-cooling.pkl")
-# cmfr.to_pickle("tests/data/restricted-range-table-cooling.pkl")
-# cmfer.to_pickle("tests/data/extended-range-table-cooling.pkl")
-# hmf.to_pickle("tests/data/filled-table-heating.pkl")
-# hmfr.to_pickle("tests/data/restricted-range-table-heating.pkl")
-# hmfer.to_pickle("tests/data/extended-range-table-heating.pkl")
+tests_dir = Path(__file__).parent
+# cmf.to_pickle(tests_dir/"data/filled-table-cooling.pkl")
+# hmf.to_pickle(tests_dir/"data/filled-table-heating.pkl")

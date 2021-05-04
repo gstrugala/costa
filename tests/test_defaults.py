@@ -4,7 +4,7 @@ import pytest
 import numpy as np
 from numpy.testing import assert_almost_equal
 
-from fillomino.defaults import default_correction
+from costa.defaults import default_correction
 
 
 Quantity = namedtuple('Quantity', ['name', 'value'])
@@ -13,11 +13,11 @@ Quantity = namedtuple('Quantity', ['name', 'value'])
 @pytest.mark.parametrize(
     "pminput, pmoutput",
     [
-        (Quantity('freq', 0), Quantity('COP', 3.072766359)),
+        (Quantity('freq', 0), Quantity('COP', 2.195)),
         (Quantity('freq', 0), Quantity('power', 0)),
-        (Quantity('freq', 0.7), Quantity('COP', 1.339928050348219)),
+        (Quantity('freq', 0.7), Quantity('COP', 1.3789477993991555)),
         (Quantity('freq', 0.7), Quantity('power', 0.5766019727968901)),
-        (Quantity('freq', 1), Quantity('COP', 1.0100302169191964)),
+        (Quantity('freq', 1), Quantity('COP', 1.0000532657573047)),
         (Quantity('freq', 1), Quantity('power', 1)),
         (Quantity('AFR', 0.5), Quantity('power', 1)),
         (Quantity('Twbr', 18), Quantity('power', 1)),

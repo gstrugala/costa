@@ -3,14 +3,14 @@
    :trim:
 
 
-Fillomino: make the most of your performance data
-=================================================
+Costa: populate incomplete performance tables
+=============================================
 
-Fillomino is a Python package aiming to fill incomplete performance maps
-using correction curves.
+Costa (**Co**\ mplete and **s**\ upplement performance **ta**\ bles) is a Python
+package aiming to fill incomplete performance maps using correction curves.
 **It is meant to create variable capacity air-to-air heat pumps performance maps
 that can be used by the** `Type 3254`_ **in TRNSYS.**
-Below is a :ref:`quick tutorial <tuto>` showing Fillomino's basic usage.
+Below is a :ref:`quick tutorial <tuto>` showing Costa's basic usage.
 You can also check out the :ref:`installation instructions <installation>`,
 and more in-depth features.
 
@@ -22,7 +22,7 @@ and more in-depth features.
    permap/modify
    permap/extend
    permap/write
-   Fillomino API reference <api>
+   Costa API reference <api>
 
 
 .. _tuto:
@@ -85,9 +85,9 @@ Then, you can load it using
 
 .. ipython::
 
-   In [1]: import fillomino
+   In [1]: import costa
 
-   In [2]: hpm = fillomino.build_heating_permap("heating-performance-map.dat")
+   In [2]: hpm = costa.build_heating_permap("heating-performance-map.dat")
 
    In [3]: hpm
    Out[3]: heating     capacity  power
@@ -141,9 +141,9 @@ For example, let's add entries ranging from 0.1, 0.2, ... up to 1.0:
 
    In [4]: import numpy as np
 
-   In [5]: hpm.pmf.entries['freq'] = np.arange(0.1, 1.1, 0.1)
+   In [5]: hpm.pm.entries['freq'] = np.arange(0.1, 1.1, 0.1)
 
-   In [6]: hpm.pmf.entries['freq']
+   In [6]: hpm.pm.entries['freq']
    Out[6]: array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1. ])
 
 Before filling the performance map, we have to specify explicitly
@@ -153,13 +153,13 @@ at the rated frequency.
 
 .. ipython::
 
-   In [7]: hpm.pmf.mode = 'heating'
+   In [7]: hpm.pm.mode = 'heating'
 
 Now we can fill it:
 
 .. ipython::
 
-   In [8]: hpm_full = hpm.pmf.fill()
+   In [8]: hpm_full = hpm.pm.fill()
 
    In [9]: hpm_full
    Out[9]:
@@ -187,7 +187,7 @@ Before ending with writing the table to a file,
 here's a tip for normalizing the performance map values.
 Tables are usually provided in a non-normalized way, but the Type |_| 3254
 works with normalized data. The table ``hpm_full`` can be normalized
-by providing rated values in a DataFrame:
+by providing rated values in a :class:`~pandas.DataFrame`:
 
 .. ipython::
 
@@ -195,9 +195,9 @@ by providing rated values in a DataFrame:
 
    In [11]: rated_values = pd.DataFrame({'capacity': [4.69], 'power': [1.01]})
 
-   In [12]: hpm_norm = hpm_full.pmf.normalize(values=rated_values)
+   In [12]: hpm_norm = hpm_full.pm.normalize(values=rated_values)
 
-   In [13]: hpm_norm.pmf.normalized
+   In [13]: hpm_norm.pm.normalized
    Out[13]: True
 
    In [14]: hpm_norm
@@ -221,7 +221,7 @@ or directly through the ``fill`` method:
 
 .. ipython::
 
-   In [15]: hpm_norm = hpm.pmf.fill(norm=rated_values)
+   In [15]: hpm_norm = hpm.pm.fill(norm=rated_values)
 
 
 Normalization can only be performed once;
@@ -230,13 +230,13 @@ trying to normalize a second time will fail:
 .. ipython::
    :okexcept:
 
-   In [16]: hpm_norm.pmf.normalize(values=rated_values)
+   In [16]: hpm_norm.pm.normalize(values=rated_values)
 
 Finally, we can write the table to a file:
 
 .. ipython::
 
-   In [17]: hpm_norm.pmf.write("complete-heating-performance-map.dat")
+   In [17]: hpm_norm.pm.write("complete-heating-performance-map.dat")
 
 That's it! You should now have a file named
 ``complete-heating-performance-map.dat``
@@ -248,9 +248,9 @@ that can directly be used with the Type |_| 3254.
 Installation
 ------------
 
-You can install Fillomino
+You can install Costa
 through `pip <https://pip.pypa.io/en/stable/>`_ by running::
 
-    $ pip install fillomino
+    $ pip install costa
 
 .. _Type 3254: https://github.com/polymtl-bee/vcaahp-model

@@ -1,6 +1,6 @@
 """
-The ``permapfiller`` module provides the PermapFiller class,
-an extension of :class:`pandas.DataFrame` to fill incomplete performance maps.
+The ``permap`` module provides the Permap class, an extension of
+:class:`pandas.DataFrame` to fill incomplete performance maps.
 """
 
 import warnings
@@ -13,14 +13,14 @@ import pandas as pd
 from .defaults import build_default_corrections
 
 
-@pd.api.extensions.register_dataframe_accessor('pmf')
-class PermapFiller:
+@pd.api.extensions.register_dataframe_accessor('pm')
+class Permap:
     """
     Complete missing values in a performance map.
 
-    PermapFiller objects are accessible through the `DataFrame accessor`_
-    ``pmf``.  They provide a handful of methods to help extend an initially
-    incomplete performance map, given as a :class:`~pandas.DataFrame`.
+    Permap objects are accessible through the `DataFrame accessor`_ ``pm``.
+    They provide a handful of methods to help extend an initially incomplete
+    performance map, given as a :class:`~pandas.DataFrame`.
 
     Parameters
     ----------
@@ -70,18 +70,18 @@ class PermapFiller:
     Build an incomplete performance map and
     set (missing) normalized frequency entries:
 
-    >>> hm = fillomino.build_heating_permap()
-    >>> hm.pmf.entries['freq'] = np.arange(0.1, 2.1, 0.1)
+    >>> hm = costa.build_heating_permap()
+    >>> hm.pm.entries['freq'] = np.arange(0.1, 2.1, 0.1)
 
     There are no corrections or manufacturer values factors by default
     until the operating mode is set:
 
-    >>> hm.pmf.corrections is None and hm.pmf.initial_norm_values is None
+    >>> hm.pm.corrections is None and hm.pm.initial_norm_values is None
     True
-    >>> hm.pmf.mode = 'heating'
-    >>> hm.pmf.initial_norm_values
+    >>> hm.pm.mode = 'heating'
+    >>> hm.pm.initial_norm_values
     {'freq': 1, 'AFR': 1}
-    >>> corr = hm.pmf.corrections['freq']['power']
+    >>> corr = hm.pm.corrections['freq']['power']
     >>> corr(0.5)
     0.20785906320354824
     >>> corr(1)
@@ -92,7 +92,7 @@ class PermapFiller:
     frequency (120 Hz) and rated frequency is 60 Hz, the frequency
     correction ratio should be
 
-    >>> hm.pmf.initial_norm_values['freq'] = 120 / 60
+    >>> hm.pm.initial_norm_values['freq'] = 120 / 60
 
     This value will affect the output of the method :meth:`correct`,
     and thus also :meth:`extend` and :meth:`fill`.
@@ -112,7 +112,7 @@ class PermapFiller:
     )
 
     def __init__(self, pandas_obj):
-        """Constructor for the PermapFiller class."""
+        """Constructor for the Permap class."""
         self._obj = pandas_obj
         self._mode = None
         self._normalized = False
@@ -121,7 +121,7 @@ class PermapFiller:
         self._initial_norm_values = None
         self._ranges = ADict(
             self.index_ranges(pandas_obj.index),
-            pmf=self,
+            pm=self,
             setitem=set_range
         )
         self._restricted_levels = {key: None for key in self.ranges}
@@ -146,18 +146,18 @@ class PermapFiller:
             adjusted accordingly from the index of `df`.
 
         """
-        pm = df.pmf.copyattr(self)
+        pm = df.pm.copyattr(self)
         if update_ranges:
-            pm.pmf._ranges = ADict(
+            pm.pm._ranges = ADict(
                 self.index_ranges(df.index),
-                pmf=pm.pmf,
+                pm=pm.pm,
                 setitem=set_range
             )
-        pm.pmf._restricted_levels = {key: None for key in pm.pmf.ranges}
+        pm.pm._restricted_levels = {key: None for key in pm.pm.ranges}
         if keep_restrictions:
             for key, restriction in self.restricted_levels.items():
-                if restriction is not None and key in pm.pmf.ranges:
-                    pm.pmf._restricted_levels[key] = restriction
+                if restriction is not None and key in pm.pm.ranges:
+                    pm.pm._restricted_levels[key] = restriction
         return pm
 
     @property
@@ -176,7 +176,7 @@ class PermapFiller:
         if isinstance(new_ranges, ADict):
             self._ranges = new_ranges
         elif isinstance(new_ranges, dict):
-            self._ranges = ADict(new_ranges, pmf=self, setitem=set_range)
+            self._ranges = ADict(new_ranges, pm=self, setitem=set_range)
         else:
             raise TypeError("'ranges' attribute must be a dict.")
 
@@ -268,14 +268,14 @@ class PermapFiller:
         return self.copyattr(self)
 
     def copyattr(self, other):
-        """Return a copy of the PermapFiller with some selected attributes
+        """Return a copy of the Permap with some selected attributes
         copied from `other`.
         """
         new = self.data.copy(deep=True)
-        if isinstance(other, PermapFiller) or hasattr(other, 'pmf'):
-            pmf = other.pmf if hasattr(other, 'pmf') else other
+        if isinstance(other, Permap) or hasattr(other, 'pm'):
+            pm = other.pm if hasattr(other, 'pm') else other
             for attribute in self._attributes_to_copy:
-                setattr(new.pmf, attribute, deepcopy(getattr(pmf, attribute)))
+                setattr(new.pm, attribute, deepcopy(getattr(pm, attribute)))
         else:
             first = type(other).__name__[0].lower()
             aan = 'a' if first in ('a', 'e', 'i', 'o', 'u') else 'an'
@@ -321,7 +321,7 @@ class PermapFiller:
             If the data is already normalized
             (:attr:`normalized` is ``True``).
         ValueError
-            If there is an inconsistency between the PermapFiller column
+            If there is an inconsistency between the Permap column
             index and the rated values DataFrame column index.
 
         See also
@@ -332,9 +332,9 @@ class PermapFiller:
 
         Examples
         --------
-        >>> cm = fillomino.build_cooling_permap()
-        >>> cm.pmf.entries['freq'] =  np.arange(0.1, 1.5, 0.1)
-        >>> cm.pmf.mode = 'cooling'
+        >>> cm = costa.build_cooling_permap()
+        >>> cm.pm.entries['freq'] =  np.arange(0.1, 1.5, 0.1)
+        >>> cm.pm.mode = 'cooling'
         >>> cm
         cooling          capacity  power
         Tdbr Twbr Tdbo
@@ -352,7 +352,7 @@ class PermapFiller:
         [72 rows x 2 columns]
 
         >>> rated_values = pd.DataFrame({'capacity': [3.52], 'power': [0.79]})
-        >>> cm_norm = cm.pmf.normalize(rated_values)
+        >>> cm_norm = cm.pm.normalize(rated_values)
         >>> cm_norm
         cooling          capacity     power
         Tdbr Twbr Tdbo
@@ -371,7 +371,7 @@ class PermapFiller:
 
         Trying to normalize again will fail:
 
-        >>> cm_norm.pmf.normalize(rated_values)
+        >>> cm_norm.pm.normalize(rated_values)
         Traceback (most recent call last):
         ...
         RuntimeError: values are already normalized.
@@ -383,16 +383,16 @@ class PermapFiller:
         pm = self.copy()
         if values is None:
             return pm
-        pmcols, vacols = set(pm.pmf.data.columns), set(values.columns)
+        pmcols, vacols = set(pm.pm.data.columns), set(values.columns)
         mismatch = pmcols ^ vacols
         if mismatch < {'capacity', 'power', 'COP'}:
             if len(pmcols) > len(vacols):
-                values = pm.pmf._add_missing_df_column(values)
+                values = pm.pm._add_missing_df_column(values)
             elif len(pmcols) < len(vacols):
-                pm.pmf.data = pm.pmf._add_missing_df_column(pm.pmf.data)
+                pm.pm.data = pm.pm._add_missing_df_column(pm.pm.data)
             for quantity, value in values.iteritems():
                 pm[quantity] /= value[0]
-            pm.pmf._normalized = True
+            pm.pm._normalized = True
             return pm
         else:
             raise ValueError(
@@ -505,10 +505,10 @@ class PermapFiller:
         """
         self._check_mode(before="setting new correction")
         new = None if inplace else self.copy()
-        pmf = self if inplace else new.pmf
-        updated_corrections = pmf.corrections
+        pm = self if inplace else new.pm
+        updated_corrections = pm.corrections
         updated_corrections[input_quantity][output_quantity] = new_correction
-        pmf.corrections = updated_corrections
+        pm.corrections = updated_corrections
         return new
 
     def set_corrections(self, input_quantity, new_corrections):
@@ -547,10 +547,10 @@ class PermapFiller:
         """
         self._check_mode(before="setting new corrections")
         new = self.copy()
-        updated_corrections = new.pmf.corrections
+        updated_corrections = new.pm.corrections
         updated_corrections[input_quantity] = new_corrections
-        new.pmf.corrections = updated_corrections
-        return new.pmf._add_correction(input_quantity)
+        new.pm.corrections = updated_corrections
+        return new.pm._add_correction(input_quantity)
 
     @property
     def initial_norm_values(self):
@@ -667,7 +667,7 @@ class PermapFiller:
             if inplace:
                 self._add_correction(quantity, inplace=True)
             else:
-                new.pmf = new.pmf._add_correction(quantity)
+                new.pm = new.pm._add_correction(quantity)
         if not inplace:
             return new
 
@@ -827,9 +827,9 @@ class PermapFiller:
         --------
         Build cooling performance map and set the missing frequency entries
 
-        >>> cm = fillomino.build_cooling_permap()
-        >>> cm.pmf.mode = 'cooling'
-        >>> cm.pmf.entries['freq'] =  np.arange(0.1, 1.5, 0.1)
+        >>> cm = costa.build_cooling_permap()
+        >>> cm.pm.mode = 'cooling'
+        >>> cm.pm.entries['freq'] =  np.arange(0.1, 1.5, 0.1)
         >>> cm
         cooling          capacity  power
         Tdbr Twbr Tdbo
@@ -850,7 +850,7 @@ class PermapFiller:
         ('Twbr') and air flow rate ('AFR'), and normalize data:
 
         >>> rated_values = pd.DataFrame({'capacity': [3.52], 'power': [0.79]})
-        >>> cm.pmf.fill(norm=rated_values)
+        >>> cm.pm.fill(norm=rated_values)
         cooling                          power  sensible_capacity  latent_capacity
         Tdbr Twbr Tdbo  AFR     freq
         17.8 12.2 -10.0 0.00001 0.1   0.003268           0.010849         0.013296
@@ -872,26 +872,26 @@ class PermapFiller:
             raise RuntimeError("values are already normalized")
 
         freq_corr = self.get_correction('freq')
-        with_freq = self._add_missing_column().pmf.extend(
+        with_freq = self._add_missing_column().pm.extend(
             freq_corr, self.entries['freq'], name='freq'
         )
         AFR_corr = self.get_correction('AFR')
-        with_AFR = with_freq.pmf.extend(
+        with_AFR = with_freq.pm.extend(
             AFR_corr, self.entries['AFR'], name='AFR'
         )
         if self.mode == 'heating':
             new_level_order = ['Tdbr', 'Tdbo', 'AFR', 'freq']
             pm_norm = (
                 with_AFR.reorder_levels(new_level_order).sort_index()
-                .pmf.copyattr(with_AFR).pmf.normalize(norm)
+                .pm.copyattr(with_AFR).pm.normalize(norm)
             )
             permap = pm_norm.reindex(['power', 'capacity'], axis='columns')
         elif self.mode == 'cooling':
-            without_Twbr = with_AFR.droplevel('Twbr').pmf.copyattr(with_AFR)
+            without_Twbr = with_AFR.droplevel('Twbr').pm.copyattr(with_AFR)
             Twbr = with_AFR.index.get_level_values('Twbr').unique().to_numpy()
             Twbr_corr = self.get_correction('Twbr')
-            with_Twbr = without_Twbr.pmf.extend(Twbr_corr, Twbr, name='Twbr')
-            pm_norm = with_Twbr.pmf.normalize(norm)
+            with_Twbr = without_Twbr.pm.extend(Twbr_corr, Twbr, name='Twbr')
+            pm_norm = with_Twbr.pm.normalize(norm)
             Tdb = pm_norm.index.get_level_values('Tdbr').to_numpy()
             Twb = pm_norm.index.get_level_values('Twbr').to_numpy()
             invalid_states = Tdb < Twb
@@ -917,7 +917,7 @@ class PermapFiller:
             )
         else:
             raise ValueError("mode must either be heating or cooling")
-        return permap.pmf.copyattr(pm_norm)
+        return permap.pm.copyattr(pm_norm)
 
     def write(self, filename, majororder='row'):
         """Write performance map to a file using a format compatible with
@@ -983,9 +983,9 @@ class PermapFiller:
 class ADict(MutableMapping):
     """A dictionary with customizable __setitem__ method."""
 
-    def __init__(self, *args, pmf=None, setitem=None, **kwargs):
+    def __init__(self, *args, pm=None, setitem=None, **kwargs):
         self.store = dict()
-        self._pmf = pmf
+        self._pm = pm
         self._setitem = setitem
         self.update(dict(*args, **kwargs))  # use the free update to set keys
 
@@ -996,7 +996,7 @@ class ADict(MutableMapping):
         if self._setitem is None:
             self.store[key] = value
         else:
-            self._setitem(self, self._pmf, key, value)
+            self._setitem(self, self._pm, key, value)
 
     def __delitem__(self, key):
         del self.store[key]
@@ -1011,10 +1011,10 @@ class ADict(MutableMapping):
         return self.store.__repr__()
 
 
-def set_range(self, pmf, key, value):
-    if pmf is None:
-        raise TypeError("'pmf' cannot be None.")
-    if key not in pmf.data.index.names:
+def set_range(self, pm, key, value):
+    if pm is None:
+        raise TypeError("'pm' cannot be None.")
+    if key not in pm.data.index.names:
         raise ValueError("range keys must be in table level names.")
     if isinstance(value, pd.Interval):
         # Ensure that the interval is closed
@@ -1027,3 +1027,11 @@ def set_range(self, pmf, key, value):
                 "The instance set must be an iterable with the range bounds,\n"
                 "or a 'pandas.Interval' object."
             )
+    # Check interval validity
+    def minmax(array): return array.min(), array.max()
+    pmmin, pmmax = minmax(pm.data.index.get_level_values(key))
+    interval = self.store[key]
+    if pmmin < interval.left or pmmax > interval.right:
+        raise RuntimeError(
+            "Interval must be larger than or equal to performance map limits."
+        )

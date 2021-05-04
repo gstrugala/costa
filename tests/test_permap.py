@@ -3,16 +3,16 @@ import numpy as np
 import pandas as pd
 from pandas.testing import assert_frame_equal, assert_series_equal
 
-import fillomino as fmo
-from fillomino.defaults import build_default_corrections
+import costa
+from costa.defaults import build_default_corrections
 
 
 @pytest.fixture
 def permap(mode, manufacturer_data_file):
     if mode == 'cooling':
-        return fmo.build_cooling_permap(manufacturer_data_file)
+        return costa.build_cooling_permap(manufacturer_data_file)
     elif mode == 'heating':
-        return fmo.build_heating_permap(manufacturer_data_file)
+        return costa.build_heating_permap(manufacturer_data_file)
     else:
         raise ValueError("'mode' should be either 'cooling' or 'heating'.")
 
@@ -20,15 +20,15 @@ def permap(mode, manufacturer_data_file):
 @pytest.fixture
 def complete_permap(mode, permap):
     freq_entries = np.arange(1, {'cooling': 15, 'heating': 21}[mode]) / 10
-    permap.pmf.entries['freq'] = freq_entries
-    permap.pmf.mode = mode
+    permap.pm.entries['freq'] = freq_entries
+    permap.pm.mode = mode
     if mode == 'heating':
-        permap.pmf.manval_factors['freq'] = 119 / 60
+        permap.pm.initial_norm_values['freq'] = 119 / 60
     rated = pd.DataFrame({
         'capacity': [{'cooling': 3.52, 'heating': 4.69}[mode]],
         'power': [{'cooling': 0.79, 'heating': 1.01}[mode]]
     })
-    complete = permap.pmf.fill(norm=rated)
+    complete = permap.pm.fill(norm=rated)
     return complete
 
 
@@ -45,7 +45,7 @@ def all_freq_corrections(mode):
 
 @pytest.fixture
 def cls():
-    return fmo.PermapFiller
+    return costa.Permap
 
 
 @pytest.fixture
@@ -67,31 +67,31 @@ def no_param(mode):
 
 
 @pytest.mark.parametrize('mode', ['cooling', 'heating'])
-class TestPermapFiller:
-    def test_permapfiller(self, permap):
-        pmf = fmo.PermapFiller(permap)
-        assert isinstance(permap.pmf, type(pmf))
+class TestPermap:
+    def test_permap(self, permap):
+        pm = costa.Permap(permap)
+        assert isinstance(permap.pm, type(pm))
 
     def test_update_data(self, mode, permap):
         old_max, new_max = {'cooling': (32.2, 35), 'heating': (23.9, 25)}[mode]
         new = (
             (2 * permap.copy())
             .rename(index={old_max: new_max}, level='Tdbr')
-            .pmf.copyattr(permap)
+            .pm.copyattr(permap)
         )
         new.index.set_names('Toa', level='Tdbo', inplace=True)
-        updated = permap.pmf.update_data(new)
+        updated = permap.pm.update_data(new)
         assert_frame_equal(updated, new)
-        rng = new.pmf.ranges
+        rng = new.pm.ranges
         rng['Tdbr'] = [rng['Tdbr'].left, new_max]
         rng = dict(rng)
         rng['Toa'] = rng.pop('Tdbo')
-        assert updated.pmf.ranges == rng
-        assert updated.pmf.restricted_levels.keys() == rng.keys()
+        assert updated.pm.ranges == rng
+        assert updated.pm.restricted_levels.keys() == rng.keys()
 
     def test_ranges(self, permap):
-        ranges = fmo.PermapFiller.index_ranges(permap.index)
-        assert ranges == permap.pmf.ranges
+        ranges = costa.Permap.index_ranges(permap.index)
+        assert ranges == permap.pm.ranges
 
     def test_index_range(self, cls, index_sample, no_param):
         level_values = index_sample.get_level_values('flowrate')
@@ -105,118 +105,131 @@ class TestPermapFiller:
         }
         assert cls.index_ranges(index_sample) == ranges
 
+    def test_set_ranges(self, cls, permap):
+        level = permap.index.names[0]
+        levelrange = cls.index_range(permap.index, level)
+        left, right = levelrange.left - levelrange.length / 2, levelrange.right
+        # Test list assignment
+        permap.pm.ranges[level] = [left, right]
+        interval = pd.Interval(left, right, closed='both')
+        assert permap.pm.ranges[level] == interval
+        # Test interval consistency check
+        left = levelrange.left + levelrange.length / 2
+        with pytest.raises(RuntimeError):
+            permap.pm.ranges[level] = [left, right]
+
     def test_pm(self, complete_permap, filled_table):
         assert_frame_equal(complete_permap, filled_table)
 
     def test_mode(self, mode, permap):
-        assert permap.pmf.corrections is None
-        assert permap.pmf.manval_factors is None
-        permap.pmf.mode = mode
-        assert permap.pmf.mode == mode
-        assert isinstance(permap.pmf.corrections, dict)
-        assert isinstance(permap.pmf.manval_factors, dict)
+        assert permap.pm.corrections is None
+        assert permap.pm.initial_norm_values is None
+        permap.pm.mode = mode
+        assert permap.pm.mode == mode
+        assert isinstance(permap.pm.corrections, dict)
+        assert isinstance(permap.pm.initial_norm_values, dict)
 
     def test_corrections(self, mode, permap):
-        assert permap.pmf.corrections is None
+        assert permap.pm.corrections is None
         default_corrections = build_default_corrections(mode)
         # Test setter
-        permap.pmf.corrections = default_corrections
+        permap.pm.corrections = default_corrections
         # Test getter
-        freq_corr = permap.pmf.corrections['freq']
+        freq_corr = permap.pm.corrections['freq']
         # Test deleter
-        del permap.pmf.corrections['freq']
+        del permap.pm.corrections['freq']
         # Test setting corrections for a single input
-        permap.pmf.corrections['freq'] = freq_corr
-        assert permap.pmf.corrections['freq'] == freq_corr
-        assert permap.pmf.corrections == default_corrections
+        permap.pm.corrections['freq'] = freq_corr
+        assert permap.pm.corrections['freq'] == freq_corr
+        assert permap.pm.corrections == default_corrections
 
     def test_normalized(self, permap):
-        assert not permap.pmf.normalized
+        assert not permap.pm.normalized
 
     def test_normalize(self, mode, permap):
-        permap.pmf.mode = mode  # required for normalization
+        permap.pm.mode = mode  # required for normalization
         rated_values = pd.DataFrame({col: [1] for col in permap})
-        permap_normalized = permap.pmf.normalize(rated_values)
-        assert permap_normalized.pmf.normalized
+        permap_normalized = permap.pm.normalize(rated_values)
+        assert permap_normalized.pm.normalized
         # Assert that trying to normalize more than once raises a RuntimeError
         with pytest.raises(RuntimeError):
-            permap_normalized.pmf.normalize(rated_values)
+            permap_normalized.pm.normalize(rated_values)
 
     def test_copy(self, permap):
-        copy = permap.pmf.copy()
+        copy = permap.pm.copy()
         assert_frame_equal(permap, copy)
         assert all([
-            getattr(permap.pmf, attribute) == getattr(copy.pmf, attribute)
-            for attribute in fmo.PermapFiller._attributes_to_copy
+            getattr(permap.pm, attribute) == getattr(copy.pm, attribute)
+            for attribute in costa.Permap._attributes_to_copy
         ])
 
     def test_entries(self, permap):
-        assert isinstance(permap.pmf.entries, dict)
+        assert isinstance(permap.pm.entries, dict)
 
     def test_get_correction(self, mode, permap):
-        permap.pmf.mode = mode
-        assert isinstance(permap.pmf.get_correction('freq'), dict)
-        assert callable(permap.pmf.get_correction('freq', 'power'))
+        permap.pm.mode = mode
+        assert isinstance(permap.pm.get_correction('freq'), dict)
+        assert callable(permap.pm.get_correction('freq', 'power'))
 
     def test_set_correction(self, mode, permap):
-        permap.pmf.mode = mode
-        corr = permap.pmf.corrections['freq'].pop('power')
+        permap.pm.mode = mode
+        corr = permap.pm.corrections['freq'].pop('power')
         # Ensure that the entry doesn't exist anymore
         with pytest.raises(KeyError):
-            del permap.pmf.corrections['freq']['power']
-        permap.pmf.set_correction('freq', 'power', corr, inplace=True)
+            del permap.pm.corrections['freq']['power']
+        permap.pm.set_correction('freq', 'power', corr, inplace=True)
         # Now the entry exists again:
-        assert permap.pmf.corrections['freq']['power'] is not None
+        assert permap.pm.corrections['freq']['power'] is not None
 
     def test_set_corrections(self, mode, permap):
-        permap.pmf.mode = mode
-        corrs = permap.pmf.corrections.pop('freq')
+        permap.pm.mode = mode
+        corrs = permap.pm.corrections.pop('freq')
         # Ensure that the entry doesn't exist anymore
         with pytest.raises(KeyError):
-            del permap.pmf.corrections['freq']
-        permap = permap.pmf.set_corrections('freq', corrs)
+            del permap.pm.corrections['freq']
+        permap = permap.pm.set_corrections('freq', corrs)
         # Now the entry exists again:
-        assert permap.pmf.corrections['freq'] is not None
+        assert permap.pm.corrections['freq'] is not None
 
-    def test_manval_factors(self, permap):
-        assert permap.pmf.manval_factors is None
+    def test_initial_norm_values(self, permap):
+        assert permap.pm.initial_norm_values is None
         # Test setter
-        permap.pmf.manval_factors = {'freq': 2}
+        permap.pm.initial_norm_values = {'freq': 2}
         # Test getter
-        assert permap.pmf.manval_factors['freq'] == 2
+        assert permap.pm.initial_norm_values['freq'] == 2
         # Try modifying the value
-        permap.pmf.manval_factors['freq'] = 3
-        assert permap.pmf.manval_factors['freq'] == 3
+        permap.pm.initial_norm_values['freq'] = 3
+        assert permap.pm.initial_norm_values['freq'] == 3
 
     def test_check_mode(self, permap):
         with pytest.raises(RuntimeError):
-            permap.pmf._check_mode()
+            permap.pm._check_mode()
 
     def test_check_columns(self, permap):
         keys = list(permap.columns)
         # Alter columns
         keys[0] += " altered"
         with pytest.raises(ValueError):
-            permap.pmf._check_columns(keys)
+            permap.pm._check_columns(keys)
 
     def test_check_corrections(self, mode, permap):
-        permap.pmf.mode = mode  # Automatiaclly sets default corrections
-        del permap.pmf.corrections['freq']['power']
-        del permap.pmf.corrections['freq']['COP']
+        permap.pm.mode = mode  # Automatiaclly sets default corrections
+        del permap.pm.corrections['freq']['power']
+        del permap.pm.corrections['freq']['COP']
         with pytest.raises(ValueError):
-            permap.pmf._check_corrections('freq')
+            permap.pm._check_corrections('freq')
 
     def test_add_correction(self, mode, permap):
-        permap.pmf.corrections = build_default_corrections(mode)
+        permap.pm.corrections = build_default_corrections(mode)
         with pytest.warns(UserWarning):
-            permap.pmf.mode = mode  # required for running _add_corrections
-        assert len(permap.pmf.corrections['freq'].keys()) == 2
-        permap.pmf._add_correction('freq', inplace=True)
-        assert len(permap.pmf.corrections['freq'].keys()) == 3
+            permap.pm.mode = mode  # required for running _add_corrections
+        assert len(permap.pm.corrections['freq'].keys()) == 2
+        permap.pm._add_correction('freq', inplace=True)
+        assert len(permap.pm.corrections['freq'].keys()) == 3
 
     def test_add_missing_df_column(self, permap):
         assert len(permap.columns) == 2
-        extended = fmo.PermapFiller._add_missing_df_column(permap)
+        extended = costa.Permap._add_missing_df_column(permap)
         assert len(extended.columns) == 3
         assert_series_equal(
             extended.COP,
@@ -225,38 +238,38 @@ class TestPermapFiller:
         )
 
     def test_correct(self, mode, permap, all_freq_corrections):
-        permap.pmf.mode = mode
+        permap.pm.mode = mode
         corrections = all_freq_corrections
         del corrections['COP']
-        corrected = permap.pmf.copy()
+        corrected = permap.pm.copy()
         for quantity, correction in corrections.items():
             #  Add correction(1) ~ 1 to avoid precision errors
             corrected[quantity] *= correction(0.5) / correction(1)
-        assert_frame_equal(permap.pmf.correct(corrections, 0.5), corrected)
+        assert_frame_equal(permap.pm.correct(corrections, 0.5), corrected)
 
     def test_extend(self, mode, permap, all_freq_corrections):
-        permap.pmf.mode = mode
+        permap.pm.mode = mode
         corrections = all_freq_corrections
         del corrections['COP']
         entries = [0.1, 0.5, 1, 1.5]
         extended = pd.concat(
-            [permap.pmf.correct(corrections, entry) for entry in entries],
+            [permap.pm.correct(corrections, entry) for entry in entries],
             keys=entries,
             names=['freq']
         )
         assert_frame_equal(
-            permap.pmf.extend(corrections, entries, name='freq'),
+            permap.pm.extend(corrections, entries, name='freq'),
             extended
         )
 
     def test_fill(self, mode, permap, filled_table):
         freq_entries = np.arange(1, {'cooling': 15, 'heating': 21}[mode]) / 10
-        permap.pmf.entries['freq'] = freq_entries
-        permap.pmf.mode = mode
+        permap.pm.entries['freq'] = freq_entries
+        permap.pm.mode = mode
         if mode == 'cooling':
             rated_values = pd.DataFrame({'capacity': [3.52], 'power': [0.79]})
         else:
-            permap.pmf.manval_factors['freq'] = 119 / 60
+            permap.pm.initial_norm_values['freq'] = 119 / 60
             rated_values = pd.DataFrame({'capacity': [4.69], 'power': [1.01]})
-        filled_map = permap.pmf.fill(norm=rated_values)
+        filled_map = permap.pm.fill(norm=rated_values)
         assert_frame_equal(filled_map, filled_table)

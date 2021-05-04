@@ -1,4 +1,4 @@
-.. currentmodule:: fillomino.permapfiller
+.. currentmodule:: costa.permap
 
 .. define non-breaking space by |_|
 .. |_| unicode:: 0xA0
@@ -8,27 +8,27 @@
 Modifying the performance map
 =============================
 
-By extending the :class:`~pandas.DataFrame` class, :class:`PermapFiller`
-objects can modify their data and perform powerful operations quite easily.
+By extending the :class:`~pandas.DataFrame` class, :class:`Permap` objects
+can modify their data and perform powerful operations quite easily.
 Below are some tips that could prove useful to those users who wish to process
 performance table data using :mod:`pandas` methods.
 
 
-Keep ``pmf`` attributes: the :meth:`~PermapFiller.copyattr` method
-------------------------------------------------------------------
+Keep ``pm`` attributes: the :meth:`~Permap.copyattr` method
+-----------------------------------------------------------
 
 Many DataFrame methods works by returning a new instance instead of modifying
 the DataFrame itself. However, when using such methods the returned new
-instance does not remember the attributes in the ``pmf`` namespace.
+instance does not remember the attributes in the ``pm`` namespace.
 For example, consider the following performance map.
-(Without arguments, the method :meth:`~fillomino.build_heating_permap` use
+(Without arguments, the method :meth:`~costa.build_heating_permap` use
 by default the performance table shown in the :ref:`quick tutorial <tuto>`.)
 
 .. ipython::
 
-   In [1]: import fillomino
+   In [1]: import costa
 
-   In [2]: hpm = fillomino.build_heating_permap()
+   In [2]: hpm = costa.build_heating_permap()
 
    In [3]: hpm
    Out[3]: heating     capacity  power
@@ -74,9 +74,9 @@ by default the performance table shown in the :ref:`quick tutorial <tuto>`.)
          10.0      6.80   2.00
          15.0      7.05   1.78
 
-   In [4]: hpm.pmf.mode = 'heating'
+   In [4]: hpm.pm.mode = 'heating'
 
-   In [5]: hpm.pmf.mode
+   In [5]: hpm.pm.mode
    Out[5]: 'heating'
 
 Assume that we want to get another DataFrame with a different index hierarchy,
@@ -141,24 +141,24 @@ However, this is not the case:
 
 .. ipython::
 
-   In [8]: hpm2.pmf.mode is None
+   In [8]: hpm2.pm.mode is None
    Out[8]: True
 
-To keep the attributes, you can use the method :meth:`~PermapFiller.copyattr`
+To keep the attributes, you can use the method :meth:`~Permap.copyattr`
 on the new instance returned by the pandas methods.
 
 .. ipython::
 
-   In [8]: hpm2 = hpm.reorder_levels(['Tdbo', 'Tdbr']).sort_index().pmf.copyattr(hpm)
+   In [8]: hpm2 = hpm.reorder_levels(['Tdbo', 'Tdbr']).sort_index().pm.copyattr(hpm)
 
-   In [9]: hpm2.pmf.mode
+   In [9]: hpm2.pm.mode
    Out[9]: 'heating'
 
 
 .. _norm:
 
-Normalize data: the :meth:`~PermapFiller.normalize` method
-----------------------------------------------------------
+Normalize data: the :meth:`~Permap.normalize` method
+----------------------------------------------------
 
 Performance tables often output non-normalized values. Users may therefore want
 to normalize the data, especially since it is required in the Type |_| 3254.
@@ -168,7 +168,7 @@ and 1.01 |_| W respectively, one could just do:
 
 .. ipython::
 
-   In [9]: hpm_norm = hpm.pmf.copy()
+   In [9]: hpm_norm = hpm.pm.copy()
 
    In [10]: hpm_norm['capacity'] = hpm_norm.capacity / 4.69
 
@@ -219,8 +219,7 @@ and 1.01 |_| W respectively, one could just do:
          10.0  1.449893  1.980198
          15.0  1.503198  1.762376
 
-However using the method :meth:`~PermapFiller.normalize`
-is more straightforward:
+However it is more straightforward to use the :meth:`~Permap.normalize` method:
 
 .. ipython::
 
@@ -228,7 +227,7 @@ is more straightforward:
 
    In [14]: rated_values = pd.DataFrame({'capacity': [4.69], 'power': [1.01]})
 
-   In [15]: hpm_norm = hpm.pmf.normalize(values=rated_values)
+   In [15]: hpm_norm = hpm.pm.normalize(values=rated_values)
 
    In [16]: hpm_norm
    Out[16]:
@@ -278,5 +277,5 @@ is more straightforward:
 Moreover, it keeps track that ``hpm_norm`` was normalized,
 and prevents normalizing more than once by mistake.
 Normalization can also be performed implicitly by giving the ``rated_values``
-as the ``norm`` argument of the :meth:`~PermapFiller.fill` method
+as the ``norm`` argument of the :meth:`~Permap.fill` method
 (see :ref:`filling the performance map <fill pm>`).

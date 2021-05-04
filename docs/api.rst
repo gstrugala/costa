@@ -1,25 +1,25 @@
-.. currentmodule:: fillomino.permapfiller
+.. currentmodule:: costa.permap
 .. _api:
 
-Fillomino reference
+Costa reference
 ===================
 
 
-The ``PermapFiller`` class
---------------------------
-:class:`PermapFiller` extends the class :class:`pandas.DataFrame`
-by `registering a DataFrame accessor`_ named ``pmf``.
-Once Fillomino is imported, all PermapFiller methods and attributes
-can be invoked by DataFrames in this way: ``df.pmf.normalized``.
+The ``Permap`` class
+--------------------
+:class:`Permap` extends the class :class:`pandas.DataFrame`
+by `registering a DataFrame accessor`_ named ``pm``.
+Once Costa is imported, all Permap methods and attributes
+can be invoked by DataFrames in this way: ``df.pm.normalized``.
 
-.. autoclass:: PermapFiller
+.. autoclass:: Permap
    :members:
 
 
 The ``defaults`` module
 -----------------------
 
-.. automodule:: fillomino.defaults
+.. automodule:: costa.defaults
    :members:
 
 .. _registering a DataFrame accessor:

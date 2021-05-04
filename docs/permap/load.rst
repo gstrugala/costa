@@ -1,4 +1,4 @@
-.. currentmodule:: fillomino.permapfiller
+.. currentmodule:: costa.permap
 
 .. define non-breaking space by |_|
 .. |_| unicode:: 0xA0
@@ -8,18 +8,17 @@
 Loading the performance map
 ===========================
 
-Performance map objects in Fillomino are represented as an extension of the
+Performance map objects (:class:`Permap`\ s) in Costa are represented as an extension of the
 pandas :class:`~pandas.DataFrame` structure. They can therefore benefit from
 a wide variety of methods to process and arrange the data.
 
-For the :meth:`~PermapFiller.fill` method to work properly,
+For the :meth:`~Permap.fill` method to work properly,
 the DataFrame representing the performance table must have a specific format.
 There are two ways to obtain an adequate DataFrame.
 One way is to format it yourself through Python scripting using pandas methods.
-The other way is to format the performance file in a certain way,
-so that it can be correctly interpreted by the
-:meth:`~fillomino.buildpermap.build_heating_permap` and
-:meth:`~fillomino.buildpermap.build_cooling_permap` methods.
+The other way is to format the performance file so that it can be correctly
+interpreted by the :meth:`~costa.buildpermap.build_heating_permap` and
+:meth:`~costa.buildpermap.build_cooling_permap` methods.
 These methods will in turn translate the file into an adequate DataFrame.
 
 
@@ -108,7 +107,7 @@ Format the input file
 
 If you'd rather not use pandas to get an adequate DataFrame, there is a plan B:
 you can use a tool of your choice to create a performance map file that can be
-interpreted by the methods :meth:`~fillomino.buildpermap.build_<mode>_permap`
+interpreted by the methods :meth:`~costa.buildpermap.build_<mode>_permap`
 (see :ref:`quick tutorial <tuto>`).
 However, as of now the diversity of acceptable file formats is pretty limited,
 so this method offers less flexibility.
@@ -119,7 +118,7 @@ Heating input file
 ~~~~~~~~~~~~~~~~~~
 In heating mode, only files with indoor and outdoor dry-bulb temperatures
 inputs are accepted—this is the most common format in manufacturer datasheets.
-To work with the method :meth:`~fillomino.buildpermap.build_heating_permap`,
+To work with the method :meth:`~costa.buildpermap.build_heating_permap`,
 the performance table from the example above has to be formatted this way: ::
 
     Tdbr 18.3 21.1 23.9
@@ -139,7 +138,7 @@ the performance table from the example above has to be formatted this way: ::
       21.1 4.41 2.24 5.10 2.22 5.74 2.15 7.42 1.71
       23.9 4.19 2.32 4.85 2.30 5.45 2.23 7.05 1.78
 
-   the (room)temperatures 18.3 |_| °C, 21.1 |_| °C and 23.9 |_| °C will be
+   the (room) temperatures 18.3 |_| °C, 21.1 |_| °C and 23.9 |_| °C will be
    interpreted as outdoor temperatures values. This also means that you can
    replace the cells in black with anything you want, since they are discarded.
 
@@ -148,9 +147,9 @@ Cooling input file
 ~~~~~~~~~~~~~~~~~~
 
 The cooling mode file format is very similar to the one in heating mode,
-with two exceptions: room air wet-bulb temperatures (:math:`T_{wbr}`) are also
-provided, and there is an additional "sensible heat capacity" (SHC) column.
-To work with the method :meth:`~fillomino.buildpermap.build_cooling_permap`,
+with two notable exceptions: room air wet-bulb temperatures (:math:`T_{wbr}`)
+are also provided, and there is an additional "sensible heat capacity" (SHC)
+column. To work with the method :meth:`~costa.buildpermap.build_cooling_permap`,
 the cooling performance table must be formatted in this way: ::
 
    Tdbr 21.1 26.7 32.2
@@ -161,14 +160,14 @@ the cooling performance table must be formatted in this way: ::
    30.6 3.30 2.73 0.70 3.75 3.22 0.71 4.20 3.42 0.73
    40.0 2.62 2.29 0.72 2.97 2.70 0.74 3.33 2.87 0.75
 
-Note that this format omit some dry-bulb - wet-bulb combinations
+Note that this format omit some dry-bulb / wet-bulb combinations
 (e.g. there is no data for
 :math:`T_{dbr} =` |_| 21.1 |_| °C and :math:`T_{wbr} =` |_| 19.4 |_| °C),
 but this is how manufacturers usually provide cooling performance data. Since
-Fillomino provides a way to determine the sensible heat ratio based on the
+Costa provides a way to determine the sensible heat ratio based on the
 conditions (see :ref:`using default corrections <default corrections>`),
 the SHC column is dropped by the method
-:meth:`~fillomino.buildpermap.build_cooling_permap`.
+:meth:`~costa.buildpermap.build_cooling_permap`.
 
 .. rubric:: Footnotes
 

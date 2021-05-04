@@ -17,7 +17,7 @@
 
 # -- Project information -----------------------------------------------------
 
-project = "Fillomino"
+project = "Costa"
 copyright = "2021, Gregor Strugala"
 author = "Gregor Strugala"
 
@@ -57,8 +57,8 @@ html_theme_options = {
     'show_relbar_bottom': True,
     'github_button': True,
     'github_user': "gstrugala",
-    'github_repo': "fillomino",
-    'description': "Fill missing values in a performance table"
+    'github_repo': "costa",
+    'description': "Impute missing values in a performance table"
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
