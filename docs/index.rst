@@ -253,4 +253,4 @@ through `pip <https://pip.pypa.io/en/stable/>`_ by running::
 
     $ pip install costa
 
-.. _Type 3254: https://github.com/polymtl-bee/vcaahp-model
+.. _Type 3254: https://vcaahp-model.readthedocs.io/en/latest/type3254/type3254.html

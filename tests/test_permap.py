@@ -19,7 +19,8 @@ def permap(mode, manufacturer_data_file):
 
 @pytest.fixture
 def complete_permap(mode, permap):
-    freq_entries = np.arange(1, {'cooling': 15, 'heating': 21}[mode]) / 10
+    min_freq, max_freq = 0.1, {'cooling': 1.5, 'heating': 2.1}[mode]
+    freq_entries = np.arange(min_freq, max_freq, 0.1)
     permap.pm.entries['freq'] = freq_entries
     permap.pm.mode = mode
     if mode == 'heating':
@@ -263,7 +264,8 @@ class TestPermap:
         )
 
     def test_fill(self, mode, permap, filled_table):
-        freq_entries = np.arange(1, {'cooling': 15, 'heating': 21}[mode]) / 10
+        min_freq, max_freq = 0.1, {'cooling': 1.5, 'heating': 2.1}[mode]
+        freq_entries = np.arange(min_freq, max_freq, 0.1)
         permap.pm.entries['freq'] = freq_entries
         permap.pm.mode = mode
         if mode == 'cooling':
@@ -273,3 +275,7 @@ class TestPermap:
             rated_values = pd.DataFrame({'capacity': [4.69], 'power': [1.01]})
         filled_map = permap.pm.fill(norm=rated_values)
         assert_frame_equal(filled_map, filled_table)
+        with pytest.warns(UserWarning):
+            missing_freq = permap.pm.copy()
+            del missing_freq.pm.corrections['freq']
+            missing_freq.pm.fill(norm=rated_values)
