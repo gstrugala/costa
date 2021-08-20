@@ -29,39 +29,39 @@ class Permap:
 
     Attributes
     ----------
-    mode : {'heating', 'cooling'}, default None
+    mode : ``{'heating', 'cooling'}``, default :obj:`None`
         The operating mode associated with the performance data.
-    normalized : bool, default False.
-        ``True`` if the performance data is normalized.
-        It is automatically set to ``True`` after using the
+    normalized : :class:`bool`, default :obj:`False`.
+        :obj:`True` if the performance data is normalized.
+        It is automatically set to :obj:`True` after using the
         :meth:`normalize` method.
-    entries : dict, default {'freq': [0.2, 0.5, 1], 'AFR': [0, 1]}
+    entries : :class:`dict`, default ``{'freq': [0.2, 0.5, 1], 'AFR': [0, 1]}``
         Entries for the missing quantities in the performance map.
         Particular entries can be set using
         ``self.entries[quantity] = list_of_entries``
-    corrections : dict, default None
+    corrections : :class:`dict`, default :obj:`None`
         Two-levels nested dictionary  with single variable correction functions
         used to extend the performance map.  A different correction
         should be provided for each input and output quantity.  The keys
         of the first level are the input quantities and those of the
         second level are the output quantities.  Dictionary values
         (the corrections) must be provided as functions with one
-        argument. See examples for more details.
+        argument.  See examples for more details.
     initial_norm_values : :class:`dict`, default :obj:`None`
         Manufacturer tables are not always provided in rated conditions;
         for example, some performance tables are provided at maximum
         compressor frequency and not at the rated frequency value.  For
         each normalized input quantity that is not in the initial performance
         table, this attributes specifies the value corresponding to the initial
-        data, normalized by the actual rated value. If none have been set,
+        data, normalized by the actual rated value.  If none have been set,
         the default dict ``{'freq': 1, 'AFR': 1}`` is assigned when the
         operating mode is set.
-    ranges : dict
+    ranges : :class:`dict`
         Operating ranges for the input quantities of the performance map.
         The limits of the performance map are used for the default ranges.
-    restricted_levels : dict
+    restricted_levels : :class:`dict`
         Each key corresponds to a level name of the performance map.
-        The associated value is either ``None``, ``'left'``, ``'right'`` or
+        The associated value is either :obj:`None`, ``'left'``, ``'right'`` or
         ``'both'``, i.e. the side(s) where the level has already been
         restricted.
 
@@ -133,17 +133,17 @@ class Permap:
         ----------
         df : :class:`~pandas.DataFrame`
             The updated data.
-        update_ranges : bool, default True
-            If ``False``, the original operating ranges will be kept.
-        keep_restrictions : bool, default False
-            If ``True``, any level already restricted will keep the same
-            restriction ('left', 'right' or 'both').
+        update_ranges : :class:`bool`, default :obj:`True`
+            If :obj:`False`, the original operating ranges will be kept.
+        keep_restrictions : :class:`bool`, default :obj:`False`
+            If :obj:`True`, any level already restricted will keep the same
+            restriction (``'left'``, ``'right'`` or ``'both'``).
 
         Returns
         -------
         :class:`~pandas.DataFrame`
-            Data in df with attributes ranges and restricted_levels
-            adjusted accordingly from the index of `df`.
+            Data in ``df`` with attributes :attr:`restricted_levels` and
+            :attr:`ranges` adjusted accordingly from the index of ``df``.
 
         """
         pm = df.pm.copyattr(self)
@@ -182,19 +182,20 @@ class Permap:
 
     @classmethod
     def index_range(cls, index, level):
-        """Return the range of a pandas MultiIndex along a given level.
+        """Return the range of a :class:`~pandas.MultiIndex`
+        along a given level.
 
         Parameters
         ----------
-        index : pandas MultiIndex
-            The index must have ``min`` and ``max`` methods.
+        index : :class:`~pandas.MultiIndex`
+            The index must have :func:`min` and :func:`max` methods.
         level
             The name of the level for which the range must be returned.
 
         Returns
         -------
-        pandas Interval
-            range of the index along the specified level,
+        :class:`~pandas.Interval`
+            The range of the index along the specified level,
             in the form (lower bound, upper bound).
 
         """
@@ -207,7 +208,9 @@ class Permap:
 
     @classmethod
     def index_ranges(cls, index):
-        """Get ranges for each level of a pandas MultiIndex as a dict."""
+        """Get ranges for each level of a :class:`~pandas.MultiIndex`
+        as a dict.
+        """
         return {level: cls.index_range(index, level) for level in index.names}
 
     @property
@@ -220,18 +223,18 @@ class Permap:
         """Setter for the operating mode.
 
         If either the corrections or the manufacturer values factors are
-        None, default values are automatically set together with the
+        :obj:`None`, default values are automatically set together with the
         mode.
 
         Parameters
         ----------
-        operating_mode : {'heating', 'cooling'}
+        operating_mode : ``{'heating', 'cooling'}``
             The operating mode associated with the performance data.
 
         Warns
         -----
         UserWarning
-            If corrections are not None and a new mode is set
+            If corrections are not :obj:`None` and a new mode is set
             (corrections are not overwritten).
 
         """
@@ -305,21 +308,21 @@ class Permap:
             A DataFrame with one row containing the rated values
             of the performance map output quantities in its columns.
             The performance data will be normalized by those values.  By
-            default, `values` is ``None`` and in that case the original
+            default, ``values`` is :obj:`None` and in that case the original
             performance map is returned.
 
         Returns
         -------
-        pm : :class:`~pandas.DataFrame`
+        newpm : :class:`~pandas.DataFrame`
             A copy of the original performance map with performance
             values normalized according to the rated values, and the
-            :attr:`normalized` attribute set to ``True``.
+            :attr:`normalized` attribute set to :obj:`True`.
 
         Raises
         ------
-        RuntimeError
+        :exc:`RuntimeError`
             If the data is already normalized
-            (:attr:`normalized` is ``True``).
+            (:attr:`normalized` is :obj:`True`).
         ValueError
             If there is an inconsistency between the Permap column
             index and the rated values DataFrame column index.
@@ -380,24 +383,24 @@ class Permap:
         if self.normalized:
             raise RuntimeError("values are already normalized.")
         self._check_mode(before='normalizing')
-        pm = self.copy()
+        newpm = self.copy()
         if values is None:
-            return pm
-        pmcols, vacols = set(pm.pm.data.columns), set(values.columns)
-        mismatch = pmcols ^ vacols
+            return newpm
+        newpmcols, vacols = set(newpm.pm.data.columns), set(values.columns)
+        mismatch = newpmcols ^ vacols
         if mismatch < {'capacity', 'power', 'COP'}:
-            if len(pmcols) > len(vacols):
-                values = pm.pm._add_missing_df_column(values)
-            elif len(pmcols) < len(vacols):
-                pm.pm.data = pm.pm._add_missing_df_column(pm.pm.data)
+            if len(newpmcols) > len(vacols):
+                values = newpm.pm._add_missing_df_column(values)
+            elif len(newpmcols) < len(vacols):
+                newpm.pm.data = newpm.pm._add_missing_df_column(newpm.pm.data)
             for quantity, value in values.iteritems():
-                pm[quantity] /= value[0]
-            pm.pm._normalized = True
-            return pm
+                newpm[quantity] /= value[0]
+            newpm.pm._normalized = True
+            return newpm
         else:
             raise ValueError(
                 "DataFrame column index must match values column index."
-                f"\nIndex are {list(pmcols)}"
+                f"\nIndex are {list(newpmcols)}"
                 f" and {list(vacols)}"
             )
 
@@ -418,17 +421,17 @@ class Permap:
 
         Parameters
         ----------
-        input_quantity : str
+        input_quantity : :class:`str`
             The input of the performance table, wich is the argument of the
             correction function to retrieve.
-        output_quantity : str, optional
+        output_quantity : :class:`str`, optional
             The output of the performance table to which the returned
             correction apply.  By default, corrections for all outputs are
             returned in the form of a dictionary.
 
         Returns
         -------
-        callable or dict
+        :obj:`callable` or :class:`dict`
             The correction function used to correct the value of the output
             quantity depending on the value of the input quantity, if the
             output quantity is specified.  Otherwise, the correction
@@ -469,23 +472,23 @@ class Permap:
 
         Parameters
         ----------
-        input_quantity : str
+        input_quantity : :class:`str`
             The input of the performance table, wich is the argument of the
             correction function to set.
-        output_quantity : str
+        output_quantity : :class:`str`
             The output of the performance table to which the correction
             apply.
-        new_correction : callable
+        new_correction : :obj:`callable`
             The new correction to be set.
-        inplace : :class:`bool`, default ``False``
-             If ``True``, performs operation in-place and returns ``None``.
+        inplace : :class:`bool`, default :obj:`False`
+             If :obj:`True`, performs operation in-place and returns :obj:`None`.
 
 
         Returns
         -------
         :class:`~pandas.DataFrame` or :obj:`None`
-            If `inplace` is ``False``, a copy of the DataFrame with the new
-            correction is returned.
+            If ``inplace`` is :obj:`False`, a copy of the DataFrame
+            with the new correction is returned.
 
         Raises
         ------
@@ -517,10 +520,10 @@ class Permap:
 
         Parameters
         ----------
-        input_quantity : str
+        input_quantity : :class:`str`
             The input of the performance table, wich is the argument of the
             correction functions to set.
-        new_corrections : dict of callables
+        new_corrections : :class:`dict` of :obj:`callable` s
             The new corrections to be set, with keys corresponding to
             output quantities names.
 
@@ -610,11 +613,11 @@ class Permap:
 
         Parameters
         ----------
-        quantity : str
+        quantity : :class:`str`
             The input quantity whose values are used to compute the
             corrections.
-        inplace : bool, default ``False``
-            If ``True``, performs operation in-place and returns ``None``.
+        inplace : :class:`bool`, default :obj:`False`
+            If :obj:`True`, performs operation in-place and returns :obj:`None`.
 
         Returns
         -------
@@ -715,13 +718,13 @@ class Permap:
 
         Parameters
         ----------
-        corrections : dict
+        corrections : :class:`dict`
             A dict with output quantities to adjust as keys, and
             correction functions as values.
-        entry : int or float
+        entry : :class:`int` or :class:`float`
             Value of the input quantity for which corrections are to
             be applied.
-        initial : int or float, default 1
+        initial : :class:`int` or :class:`float`, default 1
             Initial normalized value
             (see attribute :attr:`initial_norm_values`).
 
@@ -754,13 +757,13 @@ class Permap:
 
         Parameters
         ----------
-        corrections : dict
+        corrections : :class:`dict`
             A dict with output quantities to adjust as keys, and
             correction functions as values.
-        entries : iterable of int or float
+        entries : iterable of :class:`int` or :class:`float`
             Values of the input quantity for which corrections are to
             be applied.
-        name : str, default 'new dim'
+        name : :class:`str`, default ``"new dim"``
             Name of the quantity corresponding to the new dimension.
 
         Returns
@@ -790,15 +793,22 @@ class Permap:
         return self.update_data(new, keep_restrictions=True)
 
     def fill(self, norm=None):
-        """Extend the performance to include frequency, air flow rate and
-        (in cooling mode) wet-bulb temperature entries.
+        """Extend the performance map to include missing levels.
+
+        Level names are ``{'Tdbr', 'Tdbo', 'AFR', 'freq'}`` in heating mode,
+        and ``{'Tdbr', 'Twbr', 'Tdbo', 'AFR', 'freq'}`` in cooling mode.
+        The performance map will be extended along all levels that are not
+        already in the index names, as long as they have an associated
+        correction (i.e. a matching key in :attr:`corrections`).
+        If a level has no associated correction, the performance map
+        is not extended along that level and a warning is raised.
 
         Parameters
         ----------
         norm : :class:`~pandas.DataFrame`, optional
             DataFrame with the rated values used for normalizing the
             data (see `values` argument in the :meth:`normalize` method
-            documentation). If not provided, the data is not normalized.
+            documentation).  If not provided, the data is not normalized.
 
         Returns
         -------
@@ -813,7 +823,7 @@ class Permap:
             (the ouput quantities to be corrected).
         RuntimeError
             If the data is already normalized
-            (:attr:`normalized` is ``True``).
+            (:attr:`normalized` is :obj:`True`).
         RuntimeError
             If the operating :attr:`mode` is not yet set.
 
@@ -846,8 +856,8 @@ class Permap:
                    46.0      3.07   0.75
         [72 rows x 2 columns]
 
-        Fill values for frequency ('freq'), wet-bulb room temperature
-        ('Twbr') and air flow rate ('AFR'), and normalize data:
+        Fill values for frequency (``'freq'``), wet-bulb room temperature
+        (``'Twbr'``) and air flow rate (``'AFR'``), and normalize data:
 
         >>> rated_values = pd.DataFrame({'capacity': [3.52], 'power': [0.79]})
         >>> cm.pm.fill(norm=rated_values)
@@ -871,27 +881,76 @@ class Permap:
         if norm is not None and self.normalized:
             raise RuntimeError("values are already normalized")
 
-        freq_corr = self.get_correction('freq')
-        with_freq = self._add_missing_column().pm.extend(
-            freq_corr, self.entries['freq'], name='freq'
-        )
-        AFR_corr = self.get_correction('AFR')
-        with_AFR = with_freq.pm.extend(
-            AFR_corr, self.entries['AFR'], name='AFR'
-        )
+        levels = {'Tdbr', 'Tdbo', 'AFR', 'freq'}
+        existent_levels = set(self.data.index.names)
+        missing_levels = levels - existent_levels
+        if self.mode == 'cooling' and 'Twbr' not in existent_levels:
+            missing_levels.add('Twbr')
+
+        newpm = self._add_missing_column()
+        levels_without_corr = set()
+        for missing_level in missing_levels:
+            if missing_level in self.corrections:
+                correction = self.get_correction(missing_level)
+                newpm = newpm.pm.extend(
+                    correction, self.entries[missing_level], name=missing_level
+                )
+            else:
+                levels_without_corr.add(missing_level)
+
+        if levels_without_corr:
+            warnings.warn(
+                "The following levels do not have a matching correction:\n"
+                f"{levels_without_corr}\n"
+                "The performance map was not extended along those levels."
+            )
+
+        newlevels = levels - levels_without_corr
+
         if self.mode == 'heating':
-            new_level_order = ['Tdbr', 'Tdbo', 'AFR', 'freq']
+            new_level_order = [
+                level for level in ['Tdbr', 'Tdbo', 'AFR', 'freq']
+                if level in newlevels
+            ]
             pm_norm = (
-                with_AFR.reorder_levels(new_level_order).sort_index()
-                .pm.copyattr(with_AFR).pm.normalize(norm)
+                newpm.reorder_levels(new_level_order).sort_index()
+                .pm.copyattr(newpm).pm.normalize(norm)
             )
             permap = pm_norm.reindex(['power', 'capacity'], axis='columns')
         elif self.mode == 'cooling':
-            without_Twbr = with_AFR.droplevel('Twbr').pm.copyattr(with_AFR)
-            Twbr = with_AFR.index.get_level_values('Twbr').unique().to_numpy()
-            Twbr_corr = self.get_correction('Twbr')
-            with_Twbr = without_Twbr.pm.extend(Twbr_corr, Twbr, name='Twbr')
-            pm_norm = with_Twbr.pm.normalize(norm)
+            # Check the need for extending humidity level
+            if (
+                'Tdbr' in newlevels and
+                ('Twbr' in existent_levels or 'Twbr' in newlevels)
+            ):
+                def firstkey(df, lev): return df.index.get_level_values(lev)[0]
+                otherlevels = newlevels - {'Tdbr', 'Twbr'}
+                first_keys = [
+                    (level, firstkey(newpm, level)) for level in otherlevels
+                ]
+                sub = newpm.pm.copy()
+                for level, first_key in first_keys:
+                    sub = sub.xs(first_key, level=level)
+
+                def lenlev(df, lev): return len(df.index.get_level_values(lev))
+                if lenlev(sub, 'Tdbr') == lenlev(sub, 'Twbr') == len(sub):
+                    extend_pm = True
+                else:
+                    extend_pm = False
+            else:
+                extend_pm = False
+
+            if extend_pm:
+                without_Twbr = newpm.droplevel('Twbr').pm.copyattr(newpm)
+                Twbr = newpm.index.get_level_values('Twbr').unique().to_numpy()
+                Twbr_corr = self.get_correction('Twbr')
+                with_Twbr = without_Twbr.pm.extend(Twbr_corr, Twbr, name='Twbr')
+                pm_norm = with_Twbr.pm.normalize(norm)
+                newlevels.add('Twbr')
+            else:
+                pm_norm = newpm.pm.normalize(norm)
+
+            # Split total capacity into sensible and latent using SHR regression
             Tdb = pm_norm.index.get_level_values('Tdbr').to_numpy()
             Twb = pm_norm.index.get_level_values('Twbr').to_numpy()
             invalid_states = Tdb < Twb
@@ -907,7 +966,10 @@ class Permap:
             )
             # Put -999 flag at invalid states
             pm_norm.iloc[invalid_states, :] = -999
-            new_level_order = ['Tdbr', 'Twbr', 'Tdbo', 'AFR', 'freq']
+            new_level_order = [
+                level for level in ['Tdbr', 'Twbr', 'Tdbo', 'AFR', 'freq']
+                if level in newlevels
+            ]
             new_index_order = ['power', 'sensible_capacity', 'latent_capacity']
             permap = (
                 pm_norm.drop('capacity', axis='columns')
@@ -921,13 +983,14 @@ class Permap:
 
     def write(self, filename, majororder='row'):
         """Write performance map to a file using a format compatible with
-        the TRNSYS `Type 3254 <https://github.com/polymtl-bee/vcaahp-model>`_.
+        the TRNSYS `Type 3254
+        <https://vcaahp-model.readthedocs.io/en/latest/type3254/type3254.html>`_.
 
         Parameters
         ----------
-        filename : str
+        filename : :class:`str`
             The name of the file to be written to.
-        majororder : {'row', 'col'}
+        majororder : ``{'row', 'col'}``
             Choose to write the performance map either in
             `row- or column-major order
             <https://en.wikipedia.org/wiki/Row-_and_column-major_order>`_.

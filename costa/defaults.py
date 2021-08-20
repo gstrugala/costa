@@ -33,18 +33,18 @@ def default_correction(mode, pminput, pmoutput=None):
 
     Parameters
     ----------
-    mode : {'cooling', 'heating'}
+    mode : ``{'cooling', 'heating'}``
         The operating mode corresponding to the desired correction.
-    pminput : {'freq', 'AFR', 'Twbr', 'SHR'}
+    pminput : ``{'freq', 'AFR', 'Twbr', 'SHR'}``
         The quantity which the desired correction should depend on.  The
-        `'SHR'` option is only available in cooling mode.
-    pmoutput : {'COP', 'power'}, optional
+        ``'SHR'`` option is only available in cooling mode.
+    pmoutput : ``{'COP', 'power'}``, optional
         The quantity to which the desired correction should apply.  Should
-        not be specified when `pminput` is `'SHR'`.
+        not be specified when ``pminput`` is ``'SHR'``.
 
     Returns
     -------
-    correction : callable
+    correction : :obj:`callable`
         Correction for the specified quantities in the given mode.
 
     Examples
@@ -119,12 +119,12 @@ def build_default_corrections(mode):
 
     Parameters
     ----------
-    mode : {'cooling', 'heating'}
+    mode : ``{'cooling', 'heating'}``
         The operating mode corresponding to the desired corrections.
 
     Returns
     -------
-    default_corrections : dict
+    default_corrections : :class:`dict`
         Corrections for the specified mode.
 
     """
