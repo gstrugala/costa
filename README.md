@@ -3,7 +3,8 @@
 whose purpose is to fill incomplete performance maps using correction curves.
 **It is meant to create variable capacity air-to-air heat pumps
 performance maps that can be used by the
-[Type 3254](https://github.com/polymtl-bee/vcaahp-model) in TRNSYS**.
+[Type 3254](https://vcaahp-model.readthedocs.io/en/latest/type3254/type3254.html)
+in TRNSYS**.
 
 With Costa, the whole process of extending and formatting
 performance maps becomes quite straightforward,
@@ -52,7 +53,7 @@ hpm_full = hpm.pm.fill()
 ```
 
 *Note:*
-The [Type 3254](https://github.com/polymtl-bee/vcaahp-model)
+The [Type 3254](https://vcaahp-model.readthedocs.io/en/latest/type3254/type3254.html)
 uses normalized performance maps.
 Normalization can be carried out with the `normalize` method,
 or directly through the `fill` method using the rated values
@@ -74,7 +75,7 @@ And finally write the full performance map
 hpm_full.pm.write("permap-heating.dat")
 ```
 Now the generated file `permap-heating.dat` should be compatible
-with the [Type 3254](https://github.com/polymtl-bee/vcaahp-model).
+with the [Type 3254](https://vcaahp-model.readthedocs.io/en/latest/type3254/type3254.html).
 
 ## Support
 If you are having problems, please open an issue in the issue tracker
