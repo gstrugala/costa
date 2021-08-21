@@ -2,6 +2,7 @@ import pytest
 import numpy as np
 import pandas as pd
 from pandas.testing import assert_frame_equal, assert_series_equal
+import matplotlib
 
 import costa
 from costa.defaults import build_default_corrections
@@ -279,3 +280,28 @@ class TestPermap:
             missing_freq = permap.pm.copy()
             del missing_freq.pm.corrections['freq']
             missing_freq.pm.fill(norm=rated_values)
+
+    def test_plot(self, filled_table, no_param):
+        fig, ax = filled_table.pm.plot(
+            'Tdbo', 'sensible_capacity', freq=0.8, AFR=1, Tdbr=21.1, Twbr=15.6
+        )
+        self.assert_plot(fig, ax)
+        fig, ax = filled_table.pm.plot(
+            'freq', 'power', z='Tdbr',
+            zaxis='legend',
+            AFR=1, Twbr=15.6, Tdbo=35
+        )
+        self.assert_plot(fig, ax)
+        fig, ax, colorbar = filled_table.pm.plot(
+            'Twbr', 'latent_capacity', z='freq',
+            AFR=1, Tdbr=21.1, Tdbo=35,
+            return_cbar=True
+        )
+        self.assert_plot(fig, ax, colorbar)
+
+    @staticmethod
+    def assert_plot(fig, ax, colorbar=None):
+        assert isinstance(fig, matplotlib.figure.Figure)
+        assert isinstance(ax, matplotlib.axes.SubplotBase)
+        if colorbar:
+            assert isinstance(colorbar, matplotlib.colorbar.Colorbar)

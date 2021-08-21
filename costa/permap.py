@@ -9,6 +9,8 @@ from collections.abc import MutableMapping
 
 import numpy as np
 import pandas as pd
+import matplotlib
+import matplotlib.pyplot as plt
 
 from .defaults import build_default_corrections
 
@@ -110,6 +112,14 @@ class Permap:
         '_ranges',
         '_restricted_levels'
     )
+
+    _plot_labels = {
+        'Tdbr': "Room dry-bulb temperature",
+        'Twbr': "Room wet-bulb temperature",
+        'Tdbo': "Outdoor dry-bulb temperature",
+        'AFR': "normalized air flow rate",
+        'freq': "normalized frequency"
+    }
 
     def __init__(self, pandas_obj):
         """Constructor for the Permap class."""
@@ -481,7 +491,7 @@ class Permap:
         new_correction : :obj:`callable`
             The new correction to be set.
         inplace : :class:`bool`, default :obj:`False`
-             If :obj:`True`, performs operation in-place and returns :obj:`None`.
+            If :obj:`True`, performs operation in-place and returns :obj:`None`.
 
 
         Returns
@@ -1041,6 +1051,140 @@ class Permap:
         )
 
         prepend_line(warning)
+
+    def plot(self, x, y, z=None, zaxis='colorbar', return_cbar=False, **kwargs):
+        """ Plot (a slice of) the performance map.
+
+        As performance maps often have more than 3 dimensions, all the data
+        cannot be plotted at once.  In that case, only a slice of the
+        performance map is plotted.  A performance map can be sliced either
+        directly in the dataframe or (more easily) by specifying a value for
+        enough levels using keyword arguments, in the form ``level=value``.
+        For example, to plot the performance map at an indoor temperature of
+        21 °C, use ``Tdbr=21``. Note that the value must be in the dataframe
+        index.
+
+        Parameters
+        ----------
+        x : :class:`str`
+            The name of the index level whose values constitute the x-axis.
+        y : :class:`str`
+            The name of the column whose values constitute the y-axis.
+        z : :class:`str`, optional
+            The name of the index level whose values constitute the color map
+            for a third dimension.
+        zaxis : ``{'colorbar', 'legend'}``
+            If a ``z`` argument is provided, this parameter specifies how `z`
+            values are represented for each performance curve.  The
+            ``'legend'`` option is more suitable when there are few performance
+            curves.
+        return_cbar : :class:`bool`, default :obj:`False`
+            If set to :obj:`True`, a colorbar object is returned along the
+            figure and axis.
+        **kwargs : :class:`dict`, optional
+            Levels and their corresponding values used for slicing the
+            performance map, in the form ``level=value``.  All `kwargs` whose
+            keys are not in the performance map index names are passed to the
+            :meth:`~pandas.DataFrame.plot` method.
+
+        Returns
+        -------
+        fig, ax[, cbar] : :class:`tuple`
+            The :class:`~matplotlib.figure.Figure` and the
+            :class:`~matplotlib.axes.SubplotBase` objects used to
+            represent the plot.  If ``return_cbar`` is :obj:`True`, the
+            :class:`~matplotlib.colorbar.Colorbar` is returned as well.
+
+
+        Raises
+        ------
+        RuntimeError
+            If there is an ambiguity on which level to plot because there are
+            either too many index levels, or too few slices specified through
+            keyword arguments (see ``**kwargs``).
+
+        Examples
+        --------
+        Create and fill a performance map
+
+        >>> permap = costa.build_heating_permap()
+        >>> permap.pm.mode = 'heating'
+        >>> permap.pm.entries['freq'] = np.arange(0.1, 2.1, 0.1)
+        >>> permap_full = permap.pm.fill()
+
+        And then plot the capacity against outdoor temperature at the rated air
+        flow rate and a room temperature of 21.1 °C, with a colorbar for
+        frequency values.
+
+        >>> permap_full.pm.plot('Tdbo', 'capacity', z='freq', AFR=1, Tdbr=21.1)
+
+        Or plot the power against frequency at the rated air flow rate and
+        and an outdoor temperature of :math:`-15` °C, with a legend for indoor
+        temperature values.
+
+        >>> permap_full.pm.plot('freq', 'power', z='Tdbr', zaxis='legend', AFR=1, Tdbo=-15)
+
+        """
+        # Keep only the data relevant for plotting
+        data = self.data[y]
+        if kwargs:
+            levels = set(data.index.names)
+            slices = levels & set(kwargs.keys())
+            if slices:
+                for level in slices:
+                    value = kwargs.pop(level)
+                    data = data.xs(value, level=level)
+        nlevels = len(data.index.names)
+
+        # Check if dataframe index is consistent with parameters
+        if z and nlevels > 2 or not z and nlevels > 1:
+            zarg = ("With" if z else "Without") + " a 'z' argument"
+            nlev = 2 if z else 1
+            excess = nlevels - nlev
+            excess_lev = f"{excess} level" + ("s" if excess > 1 else "")
+            excess_sl = f"{excess} slice" + ("s" if excess > 1 else "")
+            kw = "\nkeywords arguments" if excess > 1 else "a\nkeyword argument"
+            raise RuntimeError(
+                f"Too many levels: {zarg}, there should be {nlev} levels.\n"
+                f"Either remove {excess_lev} or specify {excess_sl} "
+                f"of the performance map using {kw}."
+            )
+
+        fig, ax = plt.subplots()
+
+        if z and nlevels == 2:
+            zs = data.index.get_level_values(z)
+            if zaxis == 'colorbar':
+                sm = plt.cm.ScalarMappable(
+                    norm=plt.Normalize(vmin=zs.min(), vmax=zs.max())
+                )
+                for zval, group in data.groupby(level=z):
+                    group.droplevel(z).plot(
+                        ax=ax, color=sm.to_rgba(zval), **kwargs
+                    )
+                colorbar = plt.colorbar(sm)
+                colorbar.ax.set_ylabel(self._plot_labels[z])
+                print(type(colorbar))
+            elif zaxis == 'legend':
+                for zval, group in data.groupby(level=z):
+                    if str(zval)[::-1].find('.') > 2:
+                        zval = round(zval, 2)
+                    group.droplevel(z).plot(ax=ax, label=f"{zval}")
+                ax.legend(title=z)
+            else:
+                msg = "zaxis argument should be either 'colorbar' or 'legend'"
+                if isinstance(zaxis, str):
+                    raise ValueError(msg)
+                else:
+                    raise TypeError(msg)
+        else:
+            data.plot(ax=ax, **kwargs)
+        ax.set_xlabel(self._plot_labels[x])
+        ax.set_ylabel(y.capitalize())
+        if 'colorbar' not in locals() or not return_cbar:
+            return fig, ax
+        else:
+            return fig, ax, colorbar
 
 
 class ADict(MutableMapping):
